@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TI Nachbau — Lobby (debug)</title>
+  <style>
+    body{font-family:Inter,Arial;background:#041018;color:#eaf6ff;margin:0;padding:18px}
+    .wrap{max-width:980px;margin:0 auto}
+    header{display:flex;align-items:center;gap:12px}
+    h1{margin:0}
+    .panel{background:#07202a;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);margin-top:12px}
+    input,select{padding:8px;border-radius:8px;background:#071826;border:1px solid rgba(255,255,255,0.03);color:#eaf6ff}
+    button{padding:8px 10px;border-radius:8px;background:#1f6feb;border:none;color:white;cursor:pointer}
+    .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .players{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+    .small{font-size:0.9rem;color:#9fb4c8}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.02)}
+    .debug{background:#021a22;padding:10px;border-radius:8px;margin-top:12px;color:#bde7ff;white-space:pre-wrap}
+    .notice{background:#ffb86b;color:#231800;padding:8px;border-radius:6px;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><h1>TI Nachbau — Lobby (debug)</h1><div class="small">Sobald du Create klickst: Debugkonsole (F12) offen lassen.</div></header>
+
+    <div class="panel">
+      <div class="row">
+        <label>Spieleranzahl</label>
+        <select id="numPlayers"><option>2</option><option selected>3</option><option>4</option></select>
+        <button id="btnInit">Setup Spieler</button>
+        <button id="btnListSaves">List Saves</button>
+      </div>
+
+      <div class="players" id="playersContainer"></div>
+
+      <div style="margin-top:12px">
+        <button id="btnCreate">Create Game</button>
+      </div>
+
+      <div class="notice" id="liveNotice">Hinweis: Öffne DevTools (F12) → Console + Network bevor du Create klickst.</div>
+    </div>
+
+    <div class="panel" id="savesPanel">
+      <h3 style="margin:0">Saves</h3>
+      <div id="savesList" class="small">keine Abfragen</div>
+    </div>
+
+    <div class="panel debug" id="debugLog">
+      Debug Log (client): <br>
+      <span id="logArea">bereit…</span>
+    </div>
+  </div>
+
+<script>
+  // Utility helpers
+  const logArea = document.getElementById('logArea');
+  function dbg(...args){ console.log(...args); logArea.textContent += '\\n' + args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '); }
+
+  // minimal setup of player rows
+  const factions = ["Arborec","Sardakk","Federation","Clan"];
+  const defaultColors = ['#1f6feb','#e85d5d','#6bd26b','#ffd166'];
+  function setupPlayers(n){
+    const c = document.getElementById('playersContainer'); c.innerHTML='';
+    for(let i=0;i<n;i++){
+      const div = document.createElement('div'); div.className='row';
+      const input = document.createElement('input'); input.type = 'text'; input.value='Player'+(i+1); input.id='pname_'+i;
+      const sel = document.createElement('select'); sel.id='pfac_'+i; factions.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o); });
+      const color = document.createElement('input'); color.type='color'; color.id='pcolor_'+i; color.value = defaultColors[i % defaultColors.length];
+      div.appendChild(input); div.appendChild(sel); div.appendChild(color); c.appendChild(div);
+    }
+  }
+
+  // robust create handler: POST, verify response, then force absolute navigation
+  async function createGame(){
+    dbg('createGame: start');
+    try{
+      const n = document.querySelectorAll('#playersContainer input[type="text"]').length;
+      if(!n){ alert('No players configured'); return; }
+      const players=[]; const factionsMap={}; const colorsMap={};
+      for(let i=0;i<n;i++){
+        const nameElem = document.getElementById('pname_'+i);
+        const nm = nameElem ? (nameElem.value.trim() || ('P'+(i+1))) : ('P'+(i+1));
+        players.push(nm);
+        factionsMap[nm] = (document.getElementById('pfac_'+i) ? document.getElementById('pfac_'+i).value : factions[0]);
+        colorsMap[nm] = (document.getElementById('pcolor_'+i) ? document.getElementById('pcolor_'+i).value : defaultColors[i % defaultColors.length]);
+      }
+
+      dbg('createGame: sending /api/create', {players, factionsMap});
+      const res = await fetch('/api/create', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({players: players, factions: factionsMap})
+      });
+      dbg('/api/create response status:', res.status);
+      let j = null;
+      try { j = await res.json(); dbg('/api/create json:', j); } catch(e){ dbg('Failed to parse /api/create JSON', e); }
+      if(!res.ok || !j || !j.ok){
+        const err = j && j.error ? j.error : ('http_status_' + res.status);
+        dbg('Create failed:', err);
+        alert('Create failed: ' + err + ' — check console/Network tab');
+        return;
+      }
+      const gameId = j.game_id || (j.state && j.state.game_id);
+      if(!gameId){
+        dbg('No game_id returned (payload):', j);
+        alert('Server hat keine game_id zurückgegeben. Schau in der Konsole.');
+        return;
+      }
+
+      // save color map to localStorage (helps later)
+      try{ localStorage.setItem('ti_colors_'+gameId, JSON.stringify(colorsMap)); dbg('Saved colors for', gameId); }catch(e){ dbg('localStorage save failed', e); }
+
+      // Force a navigation using absolute URL to avoid strange client-side history issues
+      const target = window.location.origin + '/game?game_id=' + encodeURIComponent(gameId);
+      dbg('Navigating to', target);
+      // two-step to make sure it really reloads the page
+      window.location.assign(target);
+      // fallback: after short delay replace if assign fails
+      setTimeout(()=> { if(window.location.href.indexOf(gameId) === -1) { window.location.replace(target); } }, 800);
+    }catch(err){
+      dbg('createGame error', err);
+      alert('Fehler beim Erstellen: ' + (err && err.message ? err.message : String(err)));
+    }
+  }
+
+  // save/load saves list (unchanged)
+  async function listSaves(){
+    dbg('listSaves: calling /api/list_saves');
+    try{
+      const r = await fetch('/api/list_saves');
+      const j = await r.json();
+      dbg('/api/list_saves ->', j);
+      const el = document.getElementById('savesList'); el.innerHTML='';
+      if(j.saves && j.saves.length){
+        const t = document.createElement('table'); const head = document.createElement('tr');
+        head.innerHTML='<th>Name</th><th>Aktion</th>'; t.appendChild(head);
+        j.saves.forEach(s=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${s.file}</td><td><button data-file="${s.file}" class="btnLoad">Load</button></td>`;
+          t.appendChild(tr);
+        });
+        el.appendChild(t);
+        document.querySelectorAll('.btnLoad').forEach(b=>{
+          b.addEventListener('click', async (ev)=>{
+            const file = ev.target.dataset.file;
+            dbg('loading save', file);
+            const r = await fetch('/api/load', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file})});
+            const jj = await r.json(); dbg('/api/load returned', jj);
+            if(jj.ok) window.location='/game?game_id='+jj.game_id;
+            else alert('load failed');
+          });
+        });
+      } else { el.textContent='No saves yet.'; }
+    }catch(e){ dbg('listSaves error', e); }
+  }
+
+  // wire events
+  document.getElementById('btnInit').addEventListener('click', ()=> setupPlayers(parseInt(document.getElementById('numPlayers').value,10)));
+  document.getElementById('btnCreate').addEventListener('click', ()=> { dbg('Create clicked'); createGame(); });
+  document.getElementById('btnListSaves').addEventListener('click', ()=> { listSaves(); });
+
+  setupPlayers(parseInt(document.getElementById('numPlayers').value,10));
+  dbg('Lobby ready');
+</script>
+
+<noscript><div style="color:#fff;background:#b22;padding:8px;border-radius:6px;margin:12px">JavaScript ist deaktiviert. Die Seite funktioniert nicht ohne JS.</div></noscript>
+</body>
+</html>
