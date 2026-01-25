@@ -1,0 +1,63 @@
+﻿<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TI Nachbau — Spiel</title>
+  <style>
+    html,body{height:100%;margin:0;background:#020710;color:#eaf6ff;font-family:Inter,Arial}
+    #wrap{display:flex;gap:12px;padding:12px}
+    #canvas{flex:1; background: radial-gradient(circle at 20% 20%, #071827, #001014); border-radius:12px; padding:12px; position:relative;}
+    #sidebar{width:360px}
+    .panel{background:#041b25;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+    button{padding:8px 10px;border-radius:8px;background:#1f6feb;border:none;color:white;cursor:pointer}
+    .small{font-size:0.9rem;color:#9fb4c8}
+    svg{width:100%;height:720px;cursor:grab;touch-action: none; display:block}
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="canvas" class="panel">
+      <svg id="mapSVG" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet"></svg>
+      <div id="ghostContainer"></div>
+      <div style="margin-top:8px" class="small">Zoom: Mausrad • Pan: Ziehen • Doppelklick reset</div>
+    </div>
+    <div id="sidebar">
+      <div class="panel">
+        <div class="small">Game</div>
+        <div>Round: <span id="roundNum">0</span></div>
+        <div style="margin-top:8px">
+          <label>Active Player (Hotseat)</label>
+          <select id="activePlayer"></select>
+        </div>
+        <div style="margin-top:8px">
+          <label>Move Unit</label>
+          <select id="moveFrom"></select>
+          <select id="moveUnit" style="margin-top:6px"></select>
+          <select id="moveTo" style="margin-top:6px"></select>
+          <div style="margin-top:8px" class="controls"><button id="btnDoMove">Move</button><button id="btnRefresh">Refresh</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEBUG: show game id and attempt to load static/app.js dynamically -->
+  <script>
+    (function(){
+      console.log("index.html inline: page loaded");
+      var gid = new URLSearchParams(window.location.search).get('game_id') || '';
+      console.log("index.html inline: game_id =", gid);
+      // attempt dynamic load of external script /static/app.js and report result
+      var script = document.createElement('script');
+      script.src = '/static/app.js';
+      script.onload = function(){ console.log('index.html inline: external /static/app.js loaded successfully'); };
+      script.onerror = function(ev){ console.error('index.html inline: ERROR loading /static/app.js', ev); 
+        // add visible message to page
+        var e = document.createElement('div'); e.style.position='fixed'; e.style.bottom='8px'; e.style.left='8px'; e.style.background='#ff4d4d'; e.style.padding='8px'; e.style.color='white';
+        e.textContent = 'ERROR loading /static/app.js — check server logs and file path';
+        document.body.appendChild(e);
+      };
+      document.body.appendChild(script);
+    })();
+  </script>
+</body>
+</html>
