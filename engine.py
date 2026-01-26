@@ -1,66 +1,58 @@
-# sub/engine.py
-import os, json, uuid
-from typing import Dict, Any
-from .game import Game
+import random
 
-SAVE_DIR = os.path.join(os.path.dirname(__file__), "..", "saves")
-os.makedirs(SAVE_DIR, exist_ok=True)
+class Engine:
+    def __init__(self, game):
+        self.game = game
 
-class GameManager:
-    def __init__(self):
-        self.games: Dict[str, Game] = {}
+    def move(self, player_name, src_id, dst_id):
+        src = self.game.get_system(src_id)
+        dst = self.game.get_system(dst_id)
 
-    def new_gid(self):
-        return "g_" + uuid.uuid4().hex[:10]
+        if not src or not dst:
+            return False, "Invalid system"
 
-    def create_game(self, players, factions:Dict[str,str]=None, seed=None):
-        gid = self.new_gid()
-        g = Game(players, factions, seed=seed)
-        self.games[gid] = g
-        return gid
+        ships = src["ships"].get(player_name, [])
+        if not ships:
+            return False, "No ships to move"
 
-    def get_game(self, gid):
-        return self.games.get(gid)
+        # move ALL ships for now
+        src["ships"][player_name] = []
+        dst["ships"].setdefault(player_name, []).extend(ships)
 
-    def list_games(self):
-        return list(self.games.keys())
+        self.game.history.append(
+            f"{player_name} moved {len(ships)} ships from {src_id} to {dst_id}"
+        )
 
-    # Save/load to disk
-    def save_game(self, gid, name=None):
-        g = self.get_game(gid)
-        if not g: return None
-        save_obj = {"meta": {"name": name or gid}, "game": g.serialize()}
-        fname = (name or gid).replace(" ","_") + "_" + gid + ".json"
-        path = os.path.join(SAVE_DIR, fname)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(save_obj, f, indent=2)
-        return path
+        self._check_combat(dst_id)
+        return True, "Move successful"
 
-    def list_saves(self):
-        out=[]
-        for f in os.listdir(SAVE_DIR):
-            if f.endswith(".json"):
-                p=os.path.join(SAVE_DIR,f)
-                try:
-                    with open(p,"r",encoding="utf-8") as fh:
-                        meta = json.load(fh).get("meta",{})
-                    out.append({"file":f, "path":p, "meta":meta})
-                except:
-                    continue
-        return out
+    def _check_combat(self, system_id):
+        sys = self.game.get_system(system_id)
+        owners = [p for p, u in sys["ships"].items() if u]
 
-    def load_save(self, filename):
-        p = os.path.join(SAVE_DIR, filename)
-        if not os.path.exists(p): return None
-        with open(p,"r",encoding="utf-8") as f:
-            obj=json.load(f)
-        # For now, create a fresh Game shell from serialized minimal info (prototype)
-        players = [pl["name"] for pl in obj["game"].get("players",[])]
-        factions = {pl["name"]:pl.get("faction","Federation") for pl in obj["game"].get("players",[])}
-        g = Game(players, factions, seed=obj["game"].get("seed"))
-        # Attempt to set round and basic fields
-        g.round = obj["game"].get("round",0)
-        g.history = obj["game"].get("history",[])[:200]
-        self.games["loaded_"+uuid.uuid4().hex[:6]] = g
-        gid = [k for k,v in self.games.items() if v==g][0]
-        return gid
+        if len(owners) > 1:
+            self.game.pending_combats[system_id] = owners
+
+    def resolve_combats(self):
+        for system_id, owners in list(self.game.pending_combats.items()):
+            sys = self.game.get_system(system_id)
+
+            # very simple combat: random winner weighted by ship count
+            pools = {}
+            for owner in owners:
+                pools[owner] = len(sys["ships"].get(owner, []))
+
+            winner = random.choices(
+                list(pools.keys()),
+                weights=list(pools.values())
+            )[0]
+
+            for owner in list(sys["ships"].keys()):
+                if owner != winner:
+                    sys["ships"][owner] = []
+
+            self.game.history.append(
+                f"Combat at {system_id}: {winner} won"
+            )
+
+            del self.game.pending_combats[system_id]
