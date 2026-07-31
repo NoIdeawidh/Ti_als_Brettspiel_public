@@ -161,6 +161,30 @@ function renderControls() {
   renderUnitList();
   renderPlayerInfo();
   renderObjectives();
+  renderAgenda();
+}
+
+function renderAgenda() {
+  const state = view.state;
+  const agenda = state.agenda;
+  q("agendaBox").style.display = agenda ? "block" : "none";
+  if (agenda) {
+    const voted = Object.entries(agenda.votes)
+      .map(([name, vote]) => `${name}: ${vote.influence} für ${vote.outcome}`)
+      .join(", ");
+    q("agendaInfo").textContent =
+      `${agenda.name} (${agenda.kind}): ${agenda.desc}` +
+      (voted ? ` – ${voted}` : "");
+    fillSelect(
+      q("agendaOutcome"),
+      agenda.outcomes.map(o => ({ value: o, label: o }))
+    );
+  }
+
+  const laws = Object.entries(state.laws || {});
+  q("laws").textContent = laws.length
+    ? laws.map(([id, outcome]) => `${id}: ${outcome}`).join(", ")
+    : "keine Gesetze in Kraft";
 }
 
 function renderObjectives() {
@@ -253,6 +277,13 @@ q("btnBuild").onclick = () => {
     structure: q("buildStructure").value
   });
 };
+
+q("btnVote").onclick = () =>
+  act({
+    type: "vote",
+    outcome: q("agendaOutcome").value,
+    influence: Number(q("agendaInfluence").value)
+  });
 
 q("btnResearch").onclick = () =>
   act({ type: "research", technology: q("techSelect").value });
