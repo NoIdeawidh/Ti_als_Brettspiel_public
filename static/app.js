@@ -107,7 +107,28 @@ function renderControls() {
   );
   fillSelect(
     q("produceUnit"),
-    view.unitTypes.map(u => ({ value: u.name, label: `${u.name} (${u.cost})` }))
+    view.unitTypes
+      .filter(u => !u.structure)
+      .map(u => ({ value: u.name, label: `${u.name} (${u.cost})` }))
+  );
+
+  const buildOptions = [];
+  state.systems.forEach(system => {
+    system.planets
+      .filter(p => p.controller === player)
+      .forEach(p =>
+        buildOptions.push({
+          value: `${system.id}|${p.name}`,
+          label: `${p.name}${(p.structures || []).length ? " · " + p.structures.map(s => s.type).join(", ") : ""}`
+        })
+      );
+  });
+  fillSelect(q("buildPlanet"), buildOptions);
+  fillSelect(
+    q("buildStructure"),
+    view.unitTypes
+      .filter(u => u.structure)
+      .map(u => ({ value: u.name, label: `${u.name} (${u.cost})` }))
   );
 
   const invadeOptions = [];
@@ -126,6 +147,19 @@ function renderControls() {
 
   renderUnitList();
   renderPlayerInfo();
+  renderObjectives();
+}
+
+function renderObjectives() {
+  const container = q("objectives");
+  container.innerHTML = "";
+  (view.state.objectives || []).forEach(objective => {
+    const line = document.createElement("div");
+    const scorers = objective.scored_by.length ? ` – erfüllt: ${objective.scored_by.join(", ")}` : "";
+    line.textContent = `${objective.name} (${objective.vp} SP): ${objective.desc}${scorers}`;
+    container.appendChild(line);
+  });
+  if (!container.childElementCount) container.textContent = "keine Ziele aufgedeckt";
 }
 
 function renderHeader() {
@@ -195,6 +229,17 @@ q("btnDoMove").onclick = () =>
 
 q("btnProduce").onclick = () =>
   act({ type: "produce", system: q("produceSystem").value, units: [q("produceUnit").value] });
+
+q("btnBuild").onclick = () => {
+  const [systemId, planet] = (q("buildPlanet").value || "").split("|");
+  if (!systemId) return setStatus("Kein eigener Planet verfügbar", "error");
+  return act({
+    type: "build",
+    system: systemId,
+    planet,
+    structure: q("buildStructure").value
+  });
+};
 
 q("btnInvade").onclick = () => {
   const [systemId, planet] = (q("invadePlanet").value || "").split("|");

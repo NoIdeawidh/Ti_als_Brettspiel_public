@@ -15,6 +15,7 @@ from flask_cors import CORS
 
 from ti.cards import STRATEGY_CARD_LIST
 from ti.game import Game
+from ti.objectives import OBJECTIVE_DECK
 from ti.store import GameStore
 from ti.units import UNIT_TYPES
 
@@ -47,6 +48,12 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
     @app.route("/api/strategy_cards")
     def strategy_cards():
         return jsonify({"ok": True, "cards": [c.to_dict() for c in STRATEGY_CARD_LIST]})
+
+    @app.route("/api/objectives")
+    def objectives():
+        return jsonify(
+            {"ok": True, "objectives": [o.to_dict() for o in OBJECTIVE_DECK]}
+        )
 
     @app.route("/api/games")
     def list_games():
