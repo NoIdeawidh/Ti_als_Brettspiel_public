@@ -12,11 +12,18 @@ from ti.models import Board, Player
 from ti.objectives import OBJECTIVE_DECK, get_objective
 from ti.phases import Phase, TurnManager
 from ti.setup import MECATOL_ID, new_game_state
+from ti.tech import (
+    TECHNOLOGY_LIST,
+    get_technology,
+    missing_prerequisites,
+    upgrades_of,
+)
+from ti.units import UNIT_TYPES
 
 VICTORY_POINTS_TO_WIN = 10
 COMMAND_TOKENS_PER_ROUND = 2
 MAX_COMMAND_TOKENS = 8
-TOKEN_COST = {"move": 1, "produce": 1, "build": 1}
+TOKEN_COST = {"move": 1, "produce": 1, "build": 1, "research": 1}
 """Activation cost per action type; actions not listed here are free."""
 CUSTODIAN_VP = 1
 """One-off reward for the first player to take Mecatol Rex."""
@@ -104,6 +111,7 @@ class Game:
             "move": self._action_move,
             "produce": self._action_produce,
             "build": self._action_build,
+            "research": self._action_research,
             "invade": self._action_invade,
             "end_turn": self._action_end_turn,
             "pass": self._action_pass,
@@ -176,8 +184,70 @@ class Game:
             action.get("units"),
         )
 
+    def _action_research(self, player: Player, action: dict) -> ActionResult:
+        technology = get_technology(action.get("technology"))
+        if technology is None:
+            return ActionResult(False, "Unknown technology")
+        if technology.id in player.technologies:
+            return ActionResult(False, f"{technology.name} is already researched")
+
+        missing = missing_prerequisites(technology, player.technologies)
+        if missing:
+            needed = ", ".join(f"{count}x {color}" for color, count in missing.items())
+            return ActionResult(False, f"Missing prerequisites: {needed}")
+        if technology.cost > player.resources:
+            return ActionResult(
+                False,
+                f"Not enough resources: need {technology.cost}, "
+                f"have {player.resources}",
+            )
+
+        player.resources -= technology.cost
+        player.technologies.append(technology.id)
+        upgraded = 0
+        if technology.upgrade:
+            upgraded = self._apply_upgrade(player.name, *technology.upgrade)
+        return ActionResult(
+            True,
+            f"{player.name} researched {technology.name}",
+            {"technology": technology.to_dict(), "upgraded_units": upgraded},
+        )
+
+    def _apply_upgrade(self, player_name: str, base: str, upgraded: str) -> int:
+        """Replace every unit of the base type the player owns with the upgrade."""
+        count = 0
+        for system in self.board.systems:
+            groups = [system.units_of(player_name)]
+            for planet in system.planets:
+                groups.append(planet.garrison_of(player_name))
+                groups.append(planet.structures_of(player_name))
+            for group in groups:
+                for unit in group:
+                    if unit.type_name == base:
+                        unit.type_name = upgraded
+                        count += 1
+        return count
+
+    def unit_type_for(self, player: Player, unit_type: str) -> str:
+        """Map a requested unit type to the player's researched variant."""
+        return upgrades_of(player.technologies).get(unit_type, unit_type)
+
+    def _unresearched(self, player: Player, unit_types: Sequence[str]) -> List[str]:
+        available = set(upgrades_of(player.technologies).values())
+        return [
+            name
+            for name in unit_types
+            if name in UNIT_TYPES
+            and UNIT_TYPES[name].base_type
+            and name not in available
+        ]
+
     def _action_produce(self, player: Player, action: dict) -> ActionResult:
-        units = action.get("units") or []
+        requested = action.get("units") or []
+        missing = self._unresearched(player, requested)
+        if missing:
+            return ActionResult(False, f"Not researched: {', '.join(missing)}")
+        units = [self.unit_type_for(player, name) for name in requested]
         result = self.engine.produce(
             player.name, action.get("system"), units, player.resources
         )
@@ -186,11 +256,14 @@ class Game:
         return result
 
     def _action_build(self, player: Player, action: dict) -> ActionResult:
+        missing = self._unresearched(player, [action.get("structure") or ""])
+        if missing:
+            return ActionResult(False, f"Not researched: {', '.join(missing)}")
         result = self.engine.build(
             player.name,
             action.get("system"),
             action.get("planet"),
-            action.get("structure"),
+            self.unit_type_for(player, action.get("structure") or ""),
             player.resources,
         )
         if result.ok:
@@ -308,6 +381,7 @@ class Game:
                 if get_objective(oid)
             ],
             "objective_deck": list(self.objective_deck),
+            "technologies": [t.to_dict() for t in TECHNOLOGY_LIST],
             "custodian": self.custodian,
             "history": self.history,
         }

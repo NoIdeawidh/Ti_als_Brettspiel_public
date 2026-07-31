@@ -47,7 +47,8 @@ function renderPlayerInfo() {
   q("playerInfo").textContent =
     `${player.faction} · ${player.resources} Ressourcen · ${player.influence} Einfluss · ` +
     `${player.command_tokens} Kommandotokens · ${player.vp} SP` +
-    `${player.passed ? " · gepasst" : ""}`;
+    `${player.passed ? " · gepasst" : ""}` +
+    `${player.technologies.length ? " · Tech: " + player.technologies.length : ""}`;
 }
 
 function renderUnitList() {
@@ -108,7 +109,7 @@ function renderControls() {
   fillSelect(
     q("produceUnit"),
     view.unitTypes
-      .filter(u => !u.structure)
+      .filter(u => !u.structure && !u.base_type)
       .map(u => ({ value: u.name, label: `${u.name} (${u.cost})` }))
   );
 
@@ -127,8 +128,20 @@ function renderControls() {
   fillSelect(
     q("buildStructure"),
     view.unitTypes
-      .filter(u => u.structure)
+      .filter(u => u.structure && !u.base_type)
       .map(u => ({ value: u.name, label: `${u.name} (${u.cost})` }))
+  );
+
+  const owner = state.players.find(p => p.name === player);
+  const known = new Set((owner && owner.technologies) || []);
+  fillSelect(
+    q("techSelect"),
+    (state.technologies || [])
+      .filter(t => !known.has(t.id))
+      .map(t => ({
+        value: t.id,
+        label: `${t.name} (${t.cost}, ${t.color})`
+      }))
   );
 
   const invadeOptions = [];
@@ -240,6 +253,9 @@ q("btnBuild").onclick = () => {
     structure: q("buildStructure").value
   });
 };
+
+q("btnResearch").onclick = () =>
+  act({ type: "research", technology: q("techSelect").value });
 
 q("btnInvade").onclick = () => {
   const [systemId, planet] = (q("invadePlanet").value || "").split("|");

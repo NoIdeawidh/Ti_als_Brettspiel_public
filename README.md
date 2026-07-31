@@ -22,6 +22,7 @@ Lobby (`/`) → Spieler anlegen → *Create Game* → Spielansicht (`/game?game_
 | `ti/units.py` | Einheitentypen (Kosten, Kampfwert, Bewegung, Kapazität) |
 | `ti/cards.py` | Strategiekarten inkl. Initiative und Boni |
 | `ti/objectives.py` | Öffentliche Ziele (Bedingung + Siegpunkte) |
+| `ti/tech.py` | Technologien inkl. Voraussetzungen und Einheiten-Upgrades |
 | `ti/models.py` | Domänenmodell (`Unit`, `Planet`, `System`, `Player`, `Board`) + Serialisierung |
 | `ti/setup.py` | Galaxie- und Spieler-Setup |
 | `ti/combat.py` | Würfelbasierter Raum- und Bodenkampf über mehrere Runden |
@@ -40,7 +41,8 @@ Re-Exports für ältere Importe.
 1. **Strategiephase** – jeder Spieler wählt in Sprecherreihenfolge eine Strategiekarte
    (Boni auf Ressourcen/Einfluss/Siegpunkte, Initiative bestimmt die Zugreihenfolge).
 2. **Aktionsphase** – Züge in Initiativreihenfolge: `move`, `produce`, `build`,
-   `invade`, `end_turn`, `pass`. `move`, `produce` und `build` kosten je ein Kommandotoken
+   `research`, `invade`, `end_turn`, `pass`. `move`, `produce`, `build` und
+   `research` kosten je ein Kommandotoken
    (Start 3, +2 pro Runde, Leadership/Warfare geben zusätzliche, Maximum 8);
    ohne Token bleibt nur Zug beenden oder passen.
 3. **Statusphase** – Einkommen aus kontrollierten Planeten, Wertung der
@@ -55,6 +57,12 @@ Custodian-Bonus für den ersten Halter von Mecatol Rex und Kartenboni.
 Ein *Space Dock* erhöht die Produktionskapazität des Systems um 3, eine *PDS*
 feuert vor dem Bodenkampf auf die landenden Truppen. Bei Verlust des Planeten
 werden die Bauwerke zerstört.
+
+**Technologien** (`ti/tech.py`) haben eine Farbe, Kosten und Voraussetzungen der
+Form „mindestens N Technologien der Farbe X“. Einheiten-Upgrades sind eigene
+`UnitType`-Einträge (`Carrier II`, `Cruiser II`, …) mit `base_type`: Beim
+Erforschen werden alle vorhandenen Einheiten des Basistyps ersetzt, neue
+Produktion und Bauwerke verwenden automatisch die verbesserte Variante.
 
 Bewegung ist gültig, wenn die Hex-Distanz die kleinste Bewegungsreichweite der
 bewegten Schiffe nicht übersteigt und genug Transportkapazität für Einheiten ohne

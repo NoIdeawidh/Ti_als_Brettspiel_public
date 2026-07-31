@@ -184,6 +184,8 @@ class Player:
     """Each activation (move/produce) costs one token; refreshed every round."""
     strategy_card: Optional[int] = None
     passed: bool = False
+    technologies: List[str] = field(default_factory=list)
+    """Researched technology ids; unit upgrades are derived from them."""
 
     def to_dict(self, board: Optional["Board"] = None) -> dict:
         data = {
@@ -196,6 +198,7 @@ class Player:
             "command_tokens": self.command_tokens,
             "strategy_card": self.strategy_card,
             "passed": self.passed,
+            "technologies": list(self.technologies),
         }
         if board is not None:
             data["planets"] = [p.name for p in board.planets_of(self.name)]
@@ -214,6 +217,7 @@ class Player:
             command_tokens=data.get("command_tokens", 3),
             strategy_card=data.get("strategy_card"),
             passed=data.get("passed", False),
+            technologies=list(data.get("technologies", [])),
         )
 
 
