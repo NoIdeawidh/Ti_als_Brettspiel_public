@@ -5,6 +5,7 @@ A round consists of three phases:
 ``strategy``  every player picks a strategy card in speaker order
 ``action``    players take turns in initiative order until everybody passed
 ``status``    scoring/cleanup, the speaker token moves on and a new round starts
+``agenda``    once Mecatol Rex is held: every player votes on the revealed agenda
 
 The turn manager only tracks *who may act*; the effects of actions live in
 :mod:`ti.engine` and :mod:`ti.game`.
@@ -20,6 +21,7 @@ class Phase:
     STRATEGY = "strategy"
     ACTION = "action"
     STATUS = "status"
+    AGENDA = "agenda"
     FINISHED = "finished"
 
 
@@ -107,6 +109,9 @@ class TurnManager:
         self.turn_index = 0
         self.order = []
         self.passed = []
+
+    def begin_agenda_phase(self) -> None:
+        self.phase = Phase.AGENDA
 
     def finish(self) -> None:
         self.phase = Phase.FINISHED

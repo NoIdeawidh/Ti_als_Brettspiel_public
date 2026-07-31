@@ -6,6 +6,15 @@ import random
 import uuid
 from typing import Dict, List, Optional, Sequence
 
+from ti.agenda import (
+    AGENDA_LIST,
+    ELECT_PLAYER,
+    get_agenda,
+    income_bonus,
+    research_surcharge,
+    tally,
+    token_maximum,
+)
 from ti.cards import STRATEGY_CARD_LIST, get_card
 from ti.engine import ActionResult, Engine
 from ti.models import Board, Player
@@ -52,6 +61,12 @@ class Game:
         self.revealed_objectives: List[str] = []
         self.scored_objectives: Dict[str, List[str]] = {}
         self.custodian: Optional[str] = None
+        self.agenda_deck: List[str] = [a.id for a in AGENDA_LIST]
+        self.rng.shuffle(self.agenda_deck)
+        self.active_agenda: Optional[str] = None
+        self.votes: Dict[str, dict] = {}
+        self.laws: Dict[str, str] = {}
+        """Enacted laws mapped to their outcome (or the elected player)."""
         self.reveal_objective()
 
     # ------------------------------------------------------------ factories
@@ -112,6 +127,7 @@ class Game:
             "produce": self._action_produce,
             "build": self._action_build,
             "research": self._action_research,
+            "vote": self._action_vote,
             "invade": self._action_invade,
             "end_turn": self._action_end_turn,
             "pass": self._action_pass,
@@ -134,17 +150,21 @@ class Game:
         if result.ok:
             player.command_tokens -= cost
             self.log(result.message)
+            self._maybe_resolve_agenda()
         return result
 
     def _check_turn(self, player: Player, action_type: str) -> Optional[ActionResult]:
-        expected_phase = (
-            Phase.STRATEGY if action_type == "select_strategy" else Phase.ACTION
-        )
+        expected_phase = {
+            "select_strategy": Phase.STRATEGY,
+            "vote": Phase.AGENDA,
+        }.get(action_type, Phase.ACTION)
         if self.turns.phase != expected_phase:
             return ActionResult(
                 False,
                 f"Action '{action_type}' not allowed in phase '{self.turns.phase}'",
             )
+        if expected_phase == Phase.AGENDA:
+            return None
         if self.turns.current_player != player.name:
             return ActionResult(
                 False, f"It is {self.turns.current_player}'s turn"
@@ -195,14 +215,14 @@ class Game:
         if missing:
             needed = ", ".join(f"{count}x {color}" for color, count in missing.items())
             return ActionResult(False, f"Missing prerequisites: {needed}")
-        if technology.cost > player.resources:
+        cost = technology.cost + research_surcharge(self.laws)
+        if cost > player.resources:
             return ActionResult(
                 False,
-                f"Not enough resources: need {technology.cost}, "
-                f"have {player.resources}",
+                f"Not enough resources: need {cost}, have {player.resources}",
             )
 
-        player.resources -= technology.cost
+        player.resources -= cost
         player.technologies.append(technology.id)
         upgraded = 0
         if technology.upgrade:
@@ -210,7 +230,11 @@ class Game:
         return ActionResult(
             True,
             f"{player.name} researched {technology.name}",
-            {"technology": technology.to_dict(), "upgraded_units": upgraded},
+            {
+                "technology": technology.to_dict(),
+                "cost": cost,
+                "upgraded_units": upgraded,
+            },
         )
 
     def _apply_upgrade(self, player_name: str, base: str, upgraded: str) -> int:
@@ -289,6 +313,72 @@ class Game:
         self._maybe_run_status_phase()
         return ActionResult(True, f"{player.name} passed")
 
+    # --------------------------------------------------------- agenda phase
+    def reveal_agenda(self) -> Optional[str]:
+        if not self.agenda_deck:
+            return None
+        self.active_agenda = self.agenda_deck.pop(0)
+        self.votes = {}
+        agenda = get_agenda(self.active_agenda)
+        if agenda:
+            self.log(f"Agenda revealed: {agenda.name}")
+        return self.active_agenda
+
+    def agenda_outcomes(self) -> List[str]:
+        agenda = get_agenda(self.active_agenda)
+        if agenda is None:
+            return []
+        if agenda.election == ELECT_PLAYER:
+            return [p.name for p in self.players]
+        return list(agenda.outcomes)
+
+    def _action_vote(self, player: Player, action: dict) -> ActionResult:
+        agenda = get_agenda(self.active_agenda)
+        if agenda is None:
+            return ActionResult(False, "No agenda is being voted on")
+        if player.name in self.votes:
+            return ActionResult(False, f"{player.name} already voted")
+
+        outcome = action.get("outcome")
+        if outcome not in self.agenda_outcomes():
+            return ActionResult(False, f"Invalid outcome: {outcome}")
+        influence = int(action.get("influence", 0))
+        if influence < 0:
+            return ActionResult(False, "Influence cannot be negative")
+        if influence > player.influence:
+            return ActionResult(
+                False,
+                f"Not enough influence: need {influence}, have {player.influence}",
+            )
+
+        player.influence -= influence
+        self.votes[player.name] = {"outcome": outcome, "influence": influence}
+        return ActionResult(
+            True,
+            f"{player.name} voted {influence} influence for '{outcome}'",
+            {"agenda": agenda.id, "outcome": outcome, "influence": influence},
+        )
+
+    def _maybe_resolve_agenda(self) -> None:
+        if self.turns.phase == Phase.AGENDA and len(self.votes) >= len(self.players):
+            self.resolve_agenda()
+
+    def resolve_agenda(self) -> None:
+        agenda = get_agenda(self.active_agenda)
+        if agenda is None:
+            return
+        speaker = self.turns.speaker
+        tiebreak = [self.votes[speaker]["outcome"]] if speaker in self.votes else []
+        outcome = tally(self.votes, tiebreak) or self.agenda_outcomes()[0]
+        if agenda.kind == "law":
+            self.laws[agenda.id] = outcome
+            self.log(f"{agenda.name} enacted with '{outcome}'")
+        else:
+            self.log(f"{agenda.name}: {agenda.resolve(self.players, outcome)}")
+        self.active_agenda = None
+        self.votes = {}
+        self._begin_next_round()
+
     # --------------------------------------------------------- status phase
     def _maybe_run_status_phase(self) -> None:
         if self.turns.phase != Phase.STATUS:
@@ -299,7 +389,7 @@ class Game:
         for player in self.players:
             income = sum(p.resources for p in self.board.planets_of(player.name))
             influence = sum(p.influence for p in self.board.planets_of(player.name))
-            player.resources += income
+            player.resources += income + income_bonus(self.laws, player.name)
             player.influence += influence
 
             scored = self._score_victory_points(player)
@@ -307,7 +397,8 @@ class Game:
                 self.log(f"{player.name} scored {scored} victory point(s)")
 
             player.command_tokens = min(
-                MAX_COMMAND_TOKENS, player.command_tokens + COMMAND_TOKENS_PER_ROUND
+                token_maximum(self.laws, MAX_COMMAND_TOKENS),
+                player.command_tokens + COMMAND_TOKENS_PER_ROUND,
             )
             player.strategy_card = None
             player.passed = False
@@ -319,6 +410,14 @@ class Game:
             self.log(f"{leader.name} won the game with {leader.vp} victory points")
             return
 
+        if self.custodian is not None and self.agenda_deck:
+            self.turns.begin_agenda_phase()
+            self.reveal_agenda()
+            return
+
+        self._begin_next_round()
+
+    def _begin_next_round(self) -> None:
         self.turns.begin_next_round()
         self.reveal_objective()
         self.log("New round started")
@@ -383,6 +482,17 @@ class Game:
             "objective_deck": list(self.objective_deck),
             "technologies": [t.to_dict() for t in TECHNOLOGY_LIST],
             "custodian": self.custodian,
+            "agenda": (
+                dict(
+                    get_agenda(self.active_agenda).to_dict(),
+                    outcomes=self.agenda_outcomes(),
+                    votes=dict(self.votes),
+                )
+                if get_agenda(self.active_agenda)
+                else None
+            ),
+            "agenda_deck": list(self.agenda_deck),
+            "laws": dict(self.laws),
             "history": self.history,
         }
 
@@ -405,6 +515,11 @@ class Game:
         }
         game.objective_deck = list(data.get("objective_deck", []))
         game.custodian = data.get("custodian")
+        agenda = data.get("agenda")
+        game.active_agenda = agenda["id"] if agenda else None
+        game.votes = dict(agenda.get("votes", {})) if agenda else {}
+        game.agenda_deck = list(data.get("agenda_deck", []))
+        game.laws = dict(data.get("laws", {}))
         game.history = list(data.get("history", []))
         game.winner = data.get("winner")
         return game

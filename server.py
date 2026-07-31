@@ -13,6 +13,7 @@ from typing import Optional
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
+from ti.agenda import AGENDA_LIST
 from ti.cards import STRATEGY_CARD_LIST
 from ti.game import Game
 from ti.objectives import OBJECTIVE_DECK
@@ -61,6 +62,10 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
         return jsonify(
             {"ok": True, "technologies": [t.to_dict() for t in TECHNOLOGY_LIST]}
         )
+
+    @app.route("/api/agendas")
+    def agendas():
+        return jsonify({"ok": True, "agendas": [a.to_dict() for a in AGENDA_LIST]})
 
     @app.route("/api/games")
     def list_games():

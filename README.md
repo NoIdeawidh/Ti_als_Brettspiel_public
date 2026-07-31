@@ -23,6 +23,7 @@ Lobby (`/`) → Spieler anlegen → *Create Game* → Spielansicht (`/game?game_
 | `ti/cards.py` | Strategiekarten inkl. Initiative und Boni |
 | `ti/objectives.py` | Öffentliche Ziele (Bedingung + Siegpunkte) |
 | `ti/tech.py` | Technologien inkl. Voraussetzungen und Einheiten-Upgrades |
+| `ti/agenda.py` | Agenden (Gesetze/Direktiven), Abstimmung und Gesetzeswirkungen |
 | `ti/models.py` | Domänenmodell (`Unit`, `Planet`, `System`, `Player`, `Board`) + Serialisierung |
 | `ti/setup.py` | Galaxie- und Spieler-Setup |
 | `ti/combat.py` | Würfelbasierter Raum- und Bodenkampf über mehrere Runden |
@@ -48,6 +49,12 @@ Re-Exports für ältere Importe.
 3. **Statusphase** – Einkommen aus kontrollierten Planeten, Wertung der
    aufgedeckten Ziele, Sprecher rotiert, ein neues Ziel wird aufgedeckt.
    Bei 10 Siegpunkten endet das Spiel.
+4. **Agendaphase** – sobald Mecatol Rex einmal gehalten wurde: Eine Agenda wird
+   aufgedeckt, jeder Spieler stimmt mit `vote` einmal ab (Einfluss wird
+   ausgegeben), der Sprecher entscheidet Gleichstände. *Direktiven* wirken sofort,
+   *Gesetze* bleiben liegen (`Game.laws`) und wirken über die Hilfsfunktionen in
+   `ti/agenda.py` – z. B. höhere Forschungskosten oder ein niedrigeres
+   Kommandotoken-Maximum.
 
 Siegpunkte kommen aus **öffentlichen Zielen** (`ti/objectives.py`, ein Ziel pro
 Runde aufgedeckt, jedes Ziel pro Spieler nur einmal wertbar), dem einmaligen
