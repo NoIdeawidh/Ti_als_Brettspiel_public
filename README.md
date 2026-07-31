@@ -57,8 +57,10 @@ Re-Exports für ältere Importe.
    Kommandotoken-Maximum.
 
 Siegpunkte kommen aus **öffentlichen Zielen** (`ti/objectives.py`, ein Ziel pro
-Runde aufgedeckt, jedes Ziel pro Spieler nur einmal wertbar), dem einmaligen
-Custodian-Bonus für den ersten Halter von Mecatol Rex und Kartenboni.
+Runde aufgedeckt, jedes Ziel pro Spieler nur einmal wertbar), **geheimen Zielen**
+(`SECRET_DECK`: jeder Spieler hält zwei, wertet höchstens eines pro Statusphase
+und zieht danach nach), dem einmaligen Custodian-Bonus für den ersten Halter von
+Mecatol Rex und Kartenboni.
 
 **Bauwerke** (`build`) stehen auf einem kontrollierten Planeten, je Typ einmal:
 Ein *Space Dock* erhöht die Produktionskapazität des Systems um 3, eine *PDS*

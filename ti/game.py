@@ -18,7 +18,7 @@ from ti.agenda import (
 from ti.cards import STRATEGY_CARD_LIST, get_card
 from ti.engine import ActionResult, Engine
 from ti.models import Board, Player
-from ti.objectives import OBJECTIVE_DECK, get_objective
+from ti.objectives import OBJECTIVE_DECK, SECRET_DECK, get_objective
 from ti.phases import Phase, TurnManager
 from ti.setup import MECATOL_ID, new_game_state
 from ti.tech import (
@@ -36,6 +36,8 @@ TOKEN_COST = {"move": 1, "produce": 1, "build": 1, "research": 1}
 """Activation cost per action type; actions not listed here are free."""
 CUSTODIAN_VP = 1
 """One-off reward for the first player to take Mecatol Rex."""
+SECRETS_PER_PLAYER = 2
+"""Secret objectives a player holds; a scored one is replaced from the deck."""
 
 
 class Game:
@@ -67,6 +69,10 @@ class Game:
         self.votes: Dict[str, dict] = {}
         self.laws: Dict[str, str] = {}
         """Enacted laws mapped to their outcome (or the elected player)."""
+        self.secret_deck: List[str] = [o.id for o in SECRET_DECK]
+        self.rng.shuffle(self.secret_deck)
+        for player in self.players:
+            self.deal_secrets(player)
         self.reveal_objective()
 
     # ------------------------------------------------------------ factories
@@ -108,6 +114,19 @@ class Game:
         if objective:
             self.log(f"New objective revealed: {objective.name}")
         return objective_id
+
+    def deal_secrets(self, player: Player) -> None:
+        """Top the player's hand up to :data:`SECRETS_PER_PLAYER` secrets."""
+        taken = {
+            objective_id
+            for other in self.players
+            for objective_id in other.secret_objectives + other.scored_secrets
+        }
+        while len(player.secret_objectives) < SECRETS_PER_PLAYER and self.secret_deck:
+            objective_id = self.secret_deck.pop(0)
+            if objective_id in taken:
+                continue
+            player.secret_objectives.append(objective_id)
 
     def log(self, message: str) -> None:
         self.history.append(f"[R{self.turns.round}] {message}")
@@ -423,7 +442,11 @@ class Game:
         self.log("New round started")
 
     def _score_victory_points(self, player: Player) -> int:
-        scored = self._score_custodian(player) + self._score_objectives(player)
+        scored = (
+            self._score_custodian(player)
+            + self._score_objectives(player)
+            + self._score_secret(player)
+        )
         card = get_card(player.strategy_card) if player.strategy_card else None
         if card:
             scored += card.bonus_vp
@@ -440,6 +463,19 @@ class Game:
         self.custodian = player.name
         self.log(f"{player.name} became custodian of Mecatol Rex")
         return CUSTODIAN_VP
+
+    def _score_secret(self, player: Player) -> int:
+        """At most one secret objective per status phase."""
+        for objective_id in list(player.secret_objectives):
+            objective = get_objective(objective_id)
+            if objective is None or not objective.is_fulfilled(self.board, player):
+                continue
+            player.secret_objectives.remove(objective_id)
+            player.scored_secrets.append(objective_id)
+            self.deal_secrets(player)
+            self.log(f"{player.name} scored secret objective '{objective.name}'")
+            return objective.vp
+        return 0
 
     def _score_objectives(self, player: Player) -> int:
         scored = 0
@@ -480,6 +516,10 @@ class Game:
                 if get_objective(oid)
             ],
             "objective_deck": list(self.objective_deck),
+            "secret_deck": list(self.secret_deck),
+            "secret_objectives": {
+                o.id: o.to_dict() for o in SECRET_DECK
+            },
             "technologies": [t.to_dict() for t in TECHNOLOGY_LIST],
             "custodian": self.custodian,
             "agenda": (
@@ -514,6 +554,7 @@ class Game:
             o["id"]: list(o.get("scored_by", [])) for o in data.get("objectives", [])
         }
         game.objective_deck = list(data.get("objective_deck", []))
+        game.secret_deck = list(data.get("secret_deck", []))
         game.custodian = data.get("custodian")
         agenda = data.get("agenda")
         game.active_agenda = agenda["id"] if agenda else None

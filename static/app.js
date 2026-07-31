@@ -197,6 +197,30 @@ function renderObjectives() {
     container.appendChild(line);
   });
   if (!container.childElementCount) container.textContent = "keine Ziele aufgedeckt";
+  renderSecrets();
+}
+
+function renderSecrets() {
+  const container = q("secrets");
+  container.innerHTML = "";
+  const player = view.state.players.find(p => p.name === activePlayerName());
+  const catalogue = view.state.secret_objectives || {};
+  if (!player) return;
+  player.secret_objectives.forEach(id => {
+    const objective = catalogue[id];
+    if (!objective) return;
+    const line = document.createElement("div");
+    line.textContent = `${objective.name} (${objective.vp} SP): ${objective.desc}`;
+    container.appendChild(line);
+  });
+  player.scored_secrets.forEach(id => {
+    const objective = catalogue[id];
+    if (!objective) return;
+    const line = document.createElement("div");
+    line.textContent = `${objective.name} – erfüllt`;
+    container.appendChild(line);
+  });
+  if (!container.childElementCount) container.textContent = "keine geheimen Ziele";
 }
 
 function renderHeader() {
