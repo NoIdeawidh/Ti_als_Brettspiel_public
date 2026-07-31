@@ -28,7 +28,7 @@
     <div class="panel">
       <div class="row">
         <label>Spieleranzahl</label>
-        <select id="numPlayers"><option>2</option><option selected>3</option><option>4</option></select>
+        <select id="numPlayers"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select>
         <button id="btnInit">Setup Spieler</button>
         <button id="btnListSaves">List Saves</button>
       </div>
@@ -60,7 +60,7 @@
 
   // minimal setup of player rows
   const factions = ["Arborec","Sardakk","Federation","Clan"];
-  const defaultColors = ['#1f6feb','#e85d5d','#6bd26b','#ffd166'];
+  const defaultColors = ['#1f6feb','#e85d5d','#6bd26b','#ffd166','#9b59b6','#1abc9c'];
   function setupPlayers(n){
     const c = document.getElementById('playersContainer'); c.innerHTML='';
     for(let i=0;i<n;i++){
@@ -91,7 +91,9 @@
       const res = await fetch('/api/create', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({players: players, factions: factionsMap})
+        body: JSON.stringify({
+          players: players.map(nm => ({name: nm, faction: factionsMap[nm], color: colorsMap[nm]}))
+        })
       });
       dbg('/api/create response status:', res.status);
       let j = null;
@@ -127,29 +129,23 @@
 
   // save/load saves list (unchanged)
   async function listSaves(){
-    dbg('listSaves: calling /api/list_saves');
     try{
-      const r = await fetch('/api/list_saves');
+      const r = await fetch('/api/games');
       const j = await r.json();
-      dbg('/api/list_saves ->', j);
       const el = document.getElementById('savesList'); el.innerHTML='';
-      if(j.saves && j.saves.length){
+      if(j.games && j.games.length){
         const t = document.createElement('table'); const head = document.createElement('tr');
-        head.innerHTML='<th>Name</th><th>Aktion</th>'; t.appendChild(head);
-        j.saves.forEach(s=>{
+        head.innerHTML='<th>Spieler</th><th>Runde</th><th>Phase</th><th>Aktion</th>'; t.appendChild(head);
+        j.games.forEach(g=>{
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${s.file}</td><td><button data-file="${s.file}" class="btnLoad">Load</button></td>`;
+          tr.innerHTML = `<td>${(g.players||[]).join(', ')}</td><td>${g.round}</td><td>${g.phase||''}</td>` +
+            `<td><button data-game="${g.game_id}" class="btnLoad">Load</button></td>`;
           t.appendChild(tr);
         });
         el.appendChild(t);
         document.querySelectorAll('.btnLoad').forEach(b=>{
-          b.addEventListener('click', async (ev)=>{
-            const file = ev.target.dataset.file;
-            dbg('loading save', file);
-            const r = await fetch('/api/load', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file})});
-            const jj = await r.json(); dbg('/api/load returned', jj);
-            if(jj.ok) window.location='/game?game_id='+jj.game_id;
-            else alert('load failed');
+          b.addEventListener('click', (ev)=>{
+            window.location = '/game?game_id=' + encodeURIComponent(ev.target.dataset.game);
           });
         });
       } else { el.textContent='No saves yet.'; }

@@ -1,198 +1,205 @@
-const params = new URLSearchParams(window.location.search);
-const GAME_ID = params.get("game_id");
+// UI controller: keeps the local view in sync with the server state.
 
+import { fetchState, fetchUnitTypes, sendAction } from "./api.js";
+import { renderMap } from "./render.js";
+
+const GAME_ID = new URLSearchParams(window.location.search).get("game_id");
 const q = id => document.getElementById(id);
-const svg = q("mapSVG");
-const SVG_NS = "http://www.w3.org/2000/svg";
 
-const PLAYER_COLORS = [
-  "#3498db",
-  "#e74c3c",
-  "#2ecc71",
-  "#f1c40f",
-  "#9b59b6",
-  "#1abc9c"
-];
-
-function clearSVG() {
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
-}
-
-function circle(x, y, r, fill, stroke = "#aaa", sw = 2) {
-  const c = document.createElementNS(SVG_NS, "circle");
-  c.setAttribute("cx", x);
-  c.setAttribute("cy", y);
-  c.setAttribute("r", r);
-  c.setAttribute("fill", fill);
-  c.setAttribute("stroke", stroke);
-  c.setAttribute("stroke-width", sw);
-  return c;
-}
-
-function text(x, y, txt, size = 12, color = "#fff") {
-  const t = document.createElementNS(SVG_NS, "text");
-  t.setAttribute("x", x);
-  t.setAttribute("y", y);
-  t.setAttribute("text-anchor", "middle");
-  t.setAttribute("dominant-baseline", "middle");
-  t.setAttribute("font-size", size);
-  t.setAttribute("fill", color);
-  t.textContent = txt;
-  return t;
-}
-
-function drawSystem(sys, x, y, hasCombat) {
-  const g = document.createElementNS(SVG_NS, "g");
-  g._x = x;
-  g._y = y;
-  g._id = sys.id;
-
-  const base = circle(
-    x, y, 36,
-    "#1e1e1e",
-    hasCombat ? "#e74c3c" : "#777",
-    hasCombat ? 4 : 2
-  );
-
-  const name = sys.planets[0]?.name || sys.id;
-  const label = text(x, y + 52, name, 13, "#000");
-
-  g.appendChild(base);
-  g.appendChild(label);
-
-  g.addEventListener("click", () => {
-    q("moveFrom").value = sys.id;
-    q("moveTo").value = sys.id;
-  });
-
-  svg.appendChild(g);
-  return g;
-}
-
-function drawUnits(system, g, players) {
-  let offsetX = -18;
-
-  Object.entries(system.ships || {}).forEach(([playerName, units]) => {
-    if (!units || units.length === 0) return;
-
-    const pIndex = players.findIndex(p => p.name === playerName);
-    const color = PLAYER_COLORS[pIndex % PLAYER_COLORS.length];
-
-    const c = circle(
-      g._x + offsetX,
-      g._y,
-      9,
-      color,
-      "#000",
-      1
-    );
-
-    const t = text(
-      g._x + offsetX,
-      g._y,
-      units.length,
-      10,
-      "#000"
-    );
-
-    svg.appendChild(c);
-    svg.appendChild(t);
-
-    offsetX += 20;
-  });
-}
-
-async function loadState() {
-  const res = await fetch(`/api/state?game_id=${GAME_ID}`);
-  const data = await res.json();
-  if (!data.ok) return;
-
-  q("roundNum").textContent = data.round;
-
-  // Players
-  q("activePlayer").innerHTML = "";
-  data.players.forEach(p => {
-    const o = document.createElement("option");
-    o.value = p.name;
-    o.textContent = p.name;
-    q("activePlayer").appendChild(o);
-  });
-
-  // Systems dropdowns
-  q("moveFrom").innerHTML = "";
-  q("moveTo").innerHTML = "";
-
-  data.systems.forEach(s => {
-    const name = s.planets[0]?.name || s.id;
-
-    const o1 = document.createElement("option");
-    o1.value = s.id;
-    o1.textContent = name;
-
-    const o2 = o1.cloneNode(true);
-
-    q("moveFrom").appendChild(o1);
-    q("moveTo").appendChild(o2);
-  });
-
-  // ---------- MAP ----------
-  clearSVG();
-
-  const cx = 450;
-  const cy = 300;
-
-  const mecatol = data.systems.find(s => s.id === "s_mec");
-  const others = data.systems.filter(s => s.id !== "s_mec");
-
-  const positions = {};
-
-  if (mecatol) {
-    positions[mecatol.id] = { x: cx, y: cy };
-  }
-
-  const r = 220;
-  others.forEach((s, i) => {
-    const a = (i / others.length) * Math.PI * 2;
-    positions[s.id] = {
-      x: cx + Math.cos(a) * r,
-      y: cy + Math.sin(a) * r
-    };
-  });
-
-  data.systems.forEach(sys => {
-    const pos = positions[sys.id];
-    const hasCombat =
-      data.pending_combats &&
-      data.pending_combats[sys.id];
-
-    const g = drawSystem(sys, pos.x, pos.y, hasCombat);
-    drawUnits(sys, g, data.players);
-  });
-
-  q("history").textContent =
-    JSON.stringify(data.history, null, 2);
-}
-
-q("btnRefresh").onclick = loadState;
-
-q("btnDoMove").onclick = async () => {
-  const payload = {
-    game_id: GAME_ID,
-    player: q("activePlayer").value,
-    action: {
-      type: "move",
-      from: q("moveFrom").value,
-      to: q("moveTo").value
-    }
-  };
-
-  await fetch("/api/move", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  loadState();
+const view = {
+  state: null,
+  unitTypes: [],
+  selectedSystem: null,
+  selectedUnits: new Set()
 };
 
-loadState();
+function setStatus(message, kind = "muted") {
+  const node = q("status");
+  node.textContent = message;
+  node.className = kind;
+}
+
+function fillSelect(select, options, keepValue = true) {
+  const previous = select.value;
+  select.innerHTML = "";
+  options.forEach(({ value, label }) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  });
+  if (keepValue && options.some(o => String(o.value) === previous)) {
+    select.value = previous;
+  }
+}
+
+function activePlayerName() {
+  return q("activePlayer").value;
+}
+
+function systemsOf(player) {
+  return view.state.systems.filter(s => (s.ships[player] || []).length);
+}
+
+function renderPlayerInfo() {
+  const player = view.state.players.find(p => p.name === activePlayerName());
+  if (!player) return;
+  q("playerInfo").textContent =
+    `${player.faction} · ${player.resources} Ressourcen · ${player.influence} Einfluss · ` +
+    `${player.vp} SP${player.passed ? " · gepasst" : ""}`;
+}
+
+function renderUnitList() {
+  const container = q("unitList");
+  container.innerHTML = "";
+  const system = view.state.systems.find(s => s.id === q("moveFrom").value);
+  const units = system ? system.ships[activePlayerName()] || [] : [];
+  if (!units.length) {
+    container.textContent = "keine Einheiten";
+    return;
+  }
+  units.forEach(unit => {
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = unit.uid;
+    box.checked = view.selectedUnits.has(unit.uid);
+    box.onchange = () =>
+      box.checked ? view.selectedUnits.add(unit.uid) : view.selectedUnits.delete(unit.uid);
+    label.appendChild(box);
+    label.append(` ${unit.type} (Bewegung ${unit.move}, Kapazität ${unit.capacity})`);
+    container.appendChild(label);
+  });
+}
+
+function renderControls() {
+  const state = view.state;
+  const player = activePlayerName();
+  const isStrategy = state.phase === "strategy";
+
+  q("strategyBox").style.display = isStrategy ? "block" : "none";
+  q("actionBox").style.display = state.phase === "action" ? "block" : "none";
+
+  fillSelect(
+    q("strategyCard"),
+    state.available_strategy_cards.map(c => ({
+      value: c.id,
+      label: `${c.id} – ${c.name}`
+    }))
+  );
+
+  const systemOptions = state.systems.map(s => ({
+    value: s.id,
+    label: s.planets.length ? s.planets.map(p => p.name).join(" / ") : `Leerraum ${s.id}`
+  }));
+  fillSelect(q("moveFrom"), systemsOf(player).map(s => ({
+    value: s.id,
+    label: s.planets.length ? s.planets[0].name : `Leerraum ${s.id}`
+  })));
+  fillSelect(q("moveTo"), systemOptions);
+
+  fillSelect(
+    q("produceSystem"),
+    state.systems
+      .filter(s => s.planets.some(p => p.controller === player))
+      .map(s => ({ value: s.id, label: s.planets[0].name }))
+  );
+  fillSelect(
+    q("produceUnit"),
+    view.unitTypes.map(u => ({ value: u.name, label: `${u.name} (${u.cost})` }))
+  );
+
+  const invadeOptions = [];
+  systemsOf(player).forEach(system => {
+    system.planets
+      .filter(p => p.controller !== player)
+      .forEach(p => invadeOptions.push({ value: `${system.id}|${p.name}`, label: p.name }));
+  });
+  fillSelect(q("invadePlanet"), invadeOptions);
+
+  renderUnitList();
+  renderPlayerInfo();
+}
+
+function renderHeader() {
+  const { round, phase, turn, winner } = view.state;
+  q("roundNum").textContent = round;
+  q("phaseName").textContent = phase;
+  q("turnInfo").textContent = winner
+    ? `Spiel beendet – Sieger: ${winner}`
+    : `Am Zug: ${turn.current_player || "-"} · Sprecher: ${turn.speaker}`;
+}
+
+async function refresh() {
+  const state = await fetchState(GAME_ID);
+  if (!state.ok) {
+    setStatus(state.error || "Spiel nicht gefunden", "error");
+    return;
+  }
+  view.state = state;
+  view.selectedUnits = new Set();
+
+  fillSelect(q("activePlayer"), state.players.map(p => ({ value: p.name, label: p.name })));
+  if (state.turn.current_player && !q("activePlayer").dataset.locked) {
+    q("activePlayer").value = state.turn.current_player;
+  }
+
+  renderHeader();
+  renderControls();
+  q("history").textContent = state.history.slice(-25).join("\n");
+  renderMap(q("map"), state, {
+    onSelect: id => {
+      view.selectedSystem = id;
+      if (systemsOf(activePlayerName()).some(s => s.id === id)) {
+        q("moveFrom").value = id;
+        renderUnitList();
+      } else {
+        q("moveTo").value = id;
+      }
+      renderMap(q("map"), view.state, { onSelect: () => {}, selectedId: id });
+    },
+    selectedId: view.selectedSystem
+  });
+}
+
+async function act(action) {
+  const result = await sendAction(GAME_ID, activePlayerName(), action);
+  setStatus(result.msg || result.error || "", result.ok ? "success" : "error");
+  await refresh();
+}
+
+q("btnRefresh").onclick = refresh;
+q("activePlayer").onchange = () => {
+  q("activePlayer").dataset.locked = "1";
+  renderControls();
+};
+q("moveFrom").onchange = renderUnitList;
+
+q("btnPickStrategy").onclick = () =>
+  act({ type: "select_strategy", card_id: Number(q("strategyCard").value) });
+
+q("btnDoMove").onclick = () =>
+  act({
+    type: "move",
+    from: q("moveFrom").value,
+    to: q("moveTo").value,
+    units: view.selectedUnits.size ? [...view.selectedUnits] : null
+  });
+
+q("btnProduce").onclick = () =>
+  act({ type: "produce", system: q("produceSystem").value, units: [q("produceUnit").value] });
+
+q("btnInvade").onclick = () => {
+  const [systemId, planet] = (q("invadePlanet").value || "").split("|");
+  if (!systemId) return setStatus("Kein Planet auswählbar", "error");
+  return act({ type: "invade", system: systemId, planet });
+};
+
+q("btnEndTurn").onclick = () => act({ type: "end_turn" });
+q("btnPass").onclick = () => act({ type: "pass" });
+
+(async function init() {
+  const meta = await fetchUnitTypes();
+  view.unitTypes = (meta.unit_types || []).filter(u => u.ship);
+  await refresh();
+})();

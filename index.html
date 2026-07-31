@@ -1,59 +1,84 @@
-﻿<!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="de">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>TI – Prototype</title>
   <style>
-    body {
-      margin: 0;
-      display: flex;
-      background: #0e1117;
-      color: #e6edf3;
-      font-family: system-ui;
-    }
-    #ui {
-      width: 300px;
-      padding: 12px;
-      background: #161b22;
-      border-right: 1px solid #30363d;
-    }
-    select, button {
-      width: 100%;
-      margin-bottom: 6px;
-      background: #21262d;
-      color: #e6edf3;
-      border: 1px solid #30363d;
-      padding: 4px;
-    }
-    button:hover {
-      background: #30363d;
-    }
-    #mapSVG {
-      flex: 1;
-      background: #0e1117;
-    }
-    pre {
-      font-size: 11px;
-      white-space: pre-wrap;
-    }
+    :root { --bg:#0e1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3; --muted:#9fb4c8; }
+    body { margin:0; display:flex; height:100vh; background:var(--bg); color:var(--fg);
+           font-family:system-ui, sans-serif; }
+    #ui { width:330px; padding:12px; background:var(--panel); border-right:1px solid var(--border);
+          overflow-y:auto; }
+    h3, h4 { margin:12px 0 6px; }
+    select, button { width:100%; margin-bottom:6px; background:#21262d; color:var(--fg);
+                     border:1px solid var(--border); padding:5px; border-radius:4px; }
+    button:hover { background:var(--border); cursor:pointer; }
+    .row { display:flex; gap:6px; }
+    .badge { display:inline-block; padding:2px 6px; border-radius:4px; background:#21262d;
+             font-size:11px; margin-right:4px; }
+    .muted { color:var(--muted); font-size:12px; }
+    #unitList { max-height:150px; overflow-y:auto; border:1px solid var(--border);
+                padding:4px; border-radius:4px; margin-bottom:6px; font-size:12px; }
+    #unitList label { display:block; }
+    pre { font-size:11px; white-space:pre-wrap; color:var(--muted); }
+    #map { flex:1; background:radial-gradient(circle at 50% 45%, #14203a 0%, #05070d 70%); }
+    #status { min-height:18px; font-size:12px; margin-bottom:6px; }
+    .error { color:#ff7b72; }
+    .success { color:#7ee787; }
   </style>
 </head>
 <body>
 
 <div id="ui">
-  <h3>Controls</h3>
+  <h3>Twilight Imperium</h3>
+  <div id="status" class="muted"></div>
+  <div>
+    <span class="badge">Runde <span id="roundNum">-</span></span>
+    <span class="badge">Phase <span id="phaseName">-</span></span>
+  </div>
+  <div class="muted" id="turnInfo"></div>
+
+  <h4>Spieler</h4>
   <select id="activePlayer"></select>
-  <select id="moveFrom"></select>
-  <select id="moveTo"></select>
-  <button id="btnDoMove">Move</button>
-  <button id="btnRefresh">Refresh</button>
-  <hr>
-  <div>Round: <span id="roundNum">0</span></div>
+  <div class="muted" id="playerInfo"></div>
+
+  <div id="strategyBox">
+    <h4>Strategiekarte</h4>
+    <select id="strategyCard"></select>
+    <button id="btnPickStrategy">Karte wählen</button>
+  </div>
+
+  <div id="actionBox">
+    <h4>Bewegung</h4>
+    <select id="moveFrom"></select>
+    <div id="unitList" class="muted">keine Einheiten</div>
+    <select id="moveTo"></select>
+    <button id="btnDoMove">Flotte bewegen</button>
+
+    <h4>Produktion</h4>
+    <select id="produceSystem"></select>
+    <select id="produceUnit"></select>
+    <button id="btnProduce">Einheit bauen</button>
+
+    <h4>Invasion</h4>
+    <select id="invadePlanet"></select>
+    <button id="btnInvade">Planet einnehmen</button>
+
+    <h4>Zug</h4>
+    <div class="row">
+      <button id="btnEndTurn">Zug beenden</button>
+      <button id="btnPass">Passen</button>
+    </div>
+  </div>
+
+  <button id="btnRefresh">Aktualisieren</button>
+  <h4>Verlauf</h4>
   <pre id="history"></pre>
 </div>
 
-<svg id="mapSVG" width="900" height="600"></svg>
+<svg id="map"></svg>
 
-<script src="/static/app.js"></script>
+<script type="module" src="/static/app.js"></script>
 </body>
 </html>
