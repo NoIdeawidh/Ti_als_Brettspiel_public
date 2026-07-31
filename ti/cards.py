@@ -1,7 +1,9 @@
 """Strategy cards.
 
-``initiative`` defines the turn order in the action phase, ``bonus`` describes
-the immediate effect that is applied when the card is played.
+``initiative`` defines the turn order in the action phase.  Every card carries
+two effects: the *primary* one is used by the card holder with the
+``play_strategy`` action, the weaker *secondary* one can be followed by every
+other player once, at the price of a command token.
 """
 
 from __future__ import annotations
@@ -11,14 +13,40 @@ from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
+class CardEffect:
+    resources: int = 0
+    influence: int = 0
+    tokens: int = 0
+    vp: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            "resources": self.resources,
+            "influence": self.influence,
+            "tokens": self.tokens,
+            "vp": self.vp,
+        }
+
+    def describe(self) -> str:
+        parts = []
+        if self.resources:
+            parts.append(f"{self.resources} Ressourcen")
+        if self.influence:
+            parts.append(f"{self.influence} Einfluss")
+        if self.tokens:
+            parts.append(f"{self.tokens} Kommandotoken")
+        if self.vp:
+            parts.append(f"{self.vp} Siegpunkt(e)")
+        return ", ".join(parts) or "kein Effekt"
+
+
+@dataclass(frozen=True)
 class StrategyCard:
     id: int
     name: str
     desc: str
-    bonus_resources: int = 0
-    bonus_influence: int = 0
-    bonus_vp: int = 0
-    bonus_tokens: int = 0
+    primary: CardEffect = CardEffect()
+    secondary: CardEffect = CardEffect()
 
     @property
     def initiative(self) -> int:
@@ -30,10 +58,8 @@ class StrategyCard:
             "name": self.name,
             "desc": self.desc,
             "initiative": self.initiative,
-            "bonus_resources": self.bonus_resources,
-            "bonus_influence": self.bonus_influence,
-            "bonus_vp": self.bonus_vp,
-            "bonus_tokens": self.bonus_tokens,
+            "primary": self.primary.to_dict(),
+            "secondary": self.secondary.to_dict(),
         }
 
 
@@ -41,17 +67,59 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
     StrategyCard(
         1,
         "Leadership",
-        "Gain command tokens or take action",
-        bonus_influence=2,
-        bonus_tokens=3,
+        "Kommandotoken und Einfluss",
+        primary=CardEffect(influence=2, tokens=3),
+        secondary=CardEffect(tokens=1),
     ),
-    StrategyCard(2, "Diplomacy", "Influence based effects", bonus_influence=1),
-    StrategyCard(3, "Politics", "Agenda/Politics effects", bonus_influence=2),
-    StrategyCard(4, "Construction", "Build structures/units", bonus_resources=2),
-    StrategyCard(5, "Trade", "Trade / promissory mechanics", bonus_resources=3),
-    StrategyCard(6, "Warfare", "Combat advantages", bonus_resources=1, bonus_tokens=1),
-    StrategyCard(7, "Technology", "Research tech", bonus_resources=2),
-    StrategyCard(8, "Imperial", "Gain VP or speaker effects", bonus_vp=1),
+    StrategyCard(
+        2,
+        "Diplomacy",
+        "Diplomatischer Einfluss",
+        primary=CardEffect(influence=1),
+        secondary=CardEffect(influence=1),
+    ),
+    StrategyCard(
+        3,
+        "Politics",
+        "Politische Einflussnahme",
+        primary=CardEffect(influence=2),
+        secondary=CardEffect(influence=1),
+    ),
+    StrategyCard(
+        4,
+        "Construction",
+        "Mittel für Bauwerke",
+        primary=CardEffect(resources=2),
+        secondary=CardEffect(resources=1),
+    ),
+    StrategyCard(
+        5,
+        "Trade",
+        "Handelsgewinne",
+        primary=CardEffect(resources=3),
+        secondary=CardEffect(resources=1, influence=1),
+    ),
+    StrategyCard(
+        6,
+        "Warfare",
+        "Kriegsvorbereitung",
+        primary=CardEffect(resources=1, tokens=1),
+        secondary=CardEffect(tokens=1),
+    ),
+    StrategyCard(
+        7,
+        "Technology",
+        "Forschungsmittel",
+        primary=CardEffect(resources=2),
+        secondary=CardEffect(resources=1),
+    ),
+    StrategyCard(
+        8,
+        "Imperial",
+        "Siegpunkt oder Sprecherwirkung",
+        primary=CardEffect(vp=1),
+        secondary=CardEffect(influence=2),
+    ),
 ]
 
 STRATEGY_CARDS: Dict[int, StrategyCard] = {c.id: c for c in STRATEGY_CARD_LIST}

@@ -90,6 +90,8 @@ function renderControls() {
     }))
   );
 
+  renderStrategyActions();
+
   const systemOptions = state.systems.map(s => ({
     value: s.id,
     label: s.planets.length ? s.planets.map(p => p.name).join(" / ") : `Leerraum ${s.id}`
@@ -162,6 +164,38 @@ function renderControls() {
   renderPlayerInfo();
   renderObjectives();
   renderAgenda();
+}
+
+function renderStrategyActions() {
+  const state = view.state;
+  const player = state.players.find(p => p.name === activePlayerName());
+  const cards = state.strategy_cards || {};
+  const card = player && player.strategy_card ? cards[player.strategy_card] : null;
+  const played = state.played_cards || [];
+
+  q("btnPlayStrategy").disabled = !card || played.includes(card.id);
+  q("btnPlayStrategy").textContent = card
+    ? `${card.name} ausspielen (${describeEffect(card.primary)})`
+    : "Keine Strategiekarte";
+
+  const followable = played
+    .filter(id => cards[id] && (!player || player.strategy_card !== id))
+    .filter(id => !(state.followers[id] || []).includes(activePlayerName()))
+    .map(id => ({
+      value: id,
+      label: `${cards[id].name}: ${describeEffect(cards[id].secondary)}`
+    }));
+  fillSelect(q("followCard"), followable);
+  q("btnFollow").disabled = !followable.length;
+}
+
+function describeEffect(effect) {
+  const parts = [];
+  if (effect.resources) parts.push(`${effect.resources} Ressourcen`);
+  if (effect.influence) parts.push(`${effect.influence} Einfluss`);
+  if (effect.tokens) parts.push(`${effect.tokens} Token`);
+  if (effect.vp) parts.push(`${effect.vp} SP`);
+  return parts.join(", ") || "kein Effekt";
 }
 
 function renderAgenda() {
@@ -301,6 +335,11 @@ q("btnBuild").onclick = () => {
     structure: q("buildStructure").value
   });
 };
+
+q("btnPlayStrategy").onclick = () => act({ type: "play_strategy" });
+
+q("btnFollow").onclick = () =>
+  act({ type: "follow", card_id: Number(q("followCard").value) });
 
 q("btnVote").onclick = () =>
   act({
