@@ -1,9 +1,10 @@
-"""Public objectives.
+"""Public and secret objectives.
 
-An objective is a named condition over the board state.  One objective is
-revealed per round; in the status phase every player who fulfils a revealed
-objective scores it once.  Adding a new objective (or a house rule variant)
-only means appending an entry to :data:`OBJECTIVE_DECK`.
+An objective is a named condition over the board state.  One public objective
+is revealed per round; in the status phase every player who fulfils a revealed
+objective scores it once.  Secret objectives (:data:`SECRET_DECK`) are dealt to
+individual players and score only for their holder.  Adding a new objective (or
+a house rule variant) only means appending an entry to the matching deck.
 """
 
 from __future__ import annotations
@@ -112,7 +113,98 @@ OBJECTIVE_DECK: List[Objective] = [
     ),
 ]
 
-OBJECTIVES: Dict[str, Objective] = {o.id: o for o in OBJECTIVE_DECK}
+
+def _foreign_home_planets(board: "Board", player: "Player") -> int:
+    """Home planets under the player's control besides their own."""
+    own = board.home_system(player.name)
+    own_names = {p.name for p in own.planets} if own else set()
+    return len(
+        [
+            planet
+            for planet in board.planets_of(player.name)
+            if planet.home and planet.name not in own_names
+        ]
+    )
+
+
+def _occupied_planets(board: "Board", player: "Player") -> int:
+    return len(
+        [p for p in board.planets_of(player.name) if p.garrison_of(player.name)]
+    )
+
+
+def _largest_fleet(board: "Board", player: "Player") -> int:
+    return max(
+        (len([u for u in s.units_of(player.name) if u.is_ship]) for s in board.systems),
+        default=0,
+    )
+
+
+def _fortified_planets(board: "Board", player: "Player") -> int:
+    return len(
+        [
+            planet
+            for planet in board.planets_of(player.name)
+            if len({u.type_name for u in planet.structures_of(player.name)}) >= 2
+        ]
+    )
+
+
+SECRET_DECK: List[Objective] = [
+    Objective(
+        "throne_claim",
+        "Anspruch auf den Thron",
+        "Kontrolliere Mecatol Rex",
+        1,
+        _controls_mecatol,
+    ),
+    Objective(
+        "foreign_flag",
+        "Fremde Flagge",
+        "Kontrolliere einen fremden Heimatplaneten",
+        2,
+        lambda board, player: _foreign_home_planets(board, player) >= 1,
+    ),
+    Objective(
+        "iron_fist",
+        "Eiserne Faust",
+        "Halte Bodentruppen auf mindestens 3 Planeten",
+        1,
+        lambda board, player: _occupied_planets(board, player) >= 3,
+    ),
+    Objective(
+        "shadow_fleet",
+        "Schattenflotte",
+        "Habe mindestens 4 Schiffe in einem System",
+        1,
+        lambda board, player: _largest_fleet(board, player) >= 4,
+    ),
+    Objective(
+        "fortress_world",
+        "Festungswelt",
+        "Habe zwei verschiedene Bauwerke auf einem Planeten",
+        1,
+        lambda board, player: _fortified_planets(board, player) >= 1,
+    ),
+    Objective(
+        "tech_supremacy",
+        "Technologische Vormacht",
+        "Besitze mindestens 4 Technologien",
+        1,
+        lambda board, player: len(player.technologies) >= 4,
+    ),
+    Objective(
+        "war_chest",
+        "Kriegskasse",
+        "Habe mindestens 10 Ressourcen",
+        1,
+        lambda board, player: player.resources >= 10,
+    ),
+]
+
+OBJECTIVES: Dict[str, Objective] = {
+    o.id: o for o in list(OBJECTIVE_DECK) + list(SECRET_DECK)
+}
 
 
 def get_objective(objective_id: str) -> Optional[Objective]:

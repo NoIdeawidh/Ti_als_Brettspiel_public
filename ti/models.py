@@ -186,6 +186,9 @@ class Player:
     passed: bool = False
     technologies: List[str] = field(default_factory=list)
     """Researched technology ids; unit upgrades are derived from them."""
+    secret_objectives: List[str] = field(default_factory=list)
+    """Secret objectives in hand; they score only for this player."""
+    scored_secrets: List[str] = field(default_factory=list)
 
     def to_dict(self, board: Optional["Board"] = None) -> dict:
         data = {
@@ -199,6 +202,8 @@ class Player:
             "strategy_card": self.strategy_card,
             "passed": self.passed,
             "technologies": list(self.technologies),
+            "secret_objectives": list(self.secret_objectives),
+            "scored_secrets": list(self.scored_secrets),
         }
         if board is not None:
             data["planets"] = [p.name for p in board.planets_of(self.name)]
@@ -218,6 +223,8 @@ class Player:
             strategy_card=data.get("strategy_card"),
             passed=data.get("passed", False),
             technologies=list(data.get("technologies", [])),
+            secret_objectives=list(data.get("secret_objectives", [])),
+            scored_secrets=list(data.get("scored_secrets", [])),
         )
 
 
