@@ -54,6 +54,7 @@ class Unit:
             "combat": self.combat,
             "move": self.move,
             "capacity": self.capacity,
+            "ship": self.is_ship,
         }
 
     @staticmethod
@@ -78,6 +79,14 @@ class Planet:
     influence: int = 0
     controller: Optional[str] = None
     home: bool = False
+    ground_forces: List[Unit] = field(default_factory=list)
+    """Units stationed on the planet; their owner defends against invasions."""
+
+    def garrison_of(self, owner: Optional[str]) -> List[Unit]:
+        return [u for u in self.ground_forces if u.owner == owner]
+
+    def defender(self) -> Optional[str]:
+        return self.ground_forces[0].owner if self.ground_forces else None
 
     def to_dict(self) -> dict:
         return {
@@ -86,6 +95,7 @@ class Planet:
             "influence": self.influence,
             "controller": self.controller,
             "home": self.home,
+            "ground_forces": [u.to_dict() for u in self.ground_forces],
         }
 
     @staticmethod
@@ -96,6 +106,7 @@ class Planet:
             influence=data.get("influence", 0),
             controller=data.get("controller"),
             home=data.get("home", False),
+            ground_forces=[Unit.from_dict(u) for u in data.get("ground_forces", [])],
         )
 
 
@@ -162,6 +173,8 @@ class Player:
     resources: int = 3
     influence: int = 1
     vp: int = 0
+    command_tokens: int = 3
+    """Each activation (move/produce) costs one token; refreshed every round."""
     strategy_card: Optional[int] = None
     passed: bool = False
 
@@ -173,6 +186,7 @@ class Player:
             "resources": self.resources,
             "influence": self.influence,
             "vp": self.vp,
+            "command_tokens": self.command_tokens,
             "strategy_card": self.strategy_card,
             "passed": self.passed,
         }
@@ -190,6 +204,7 @@ class Player:
             resources=data.get("resources", 3),
             influence=data.get("influence", 1),
             vp=data.get("vp", 0),
+            command_tokens=data.get("command_tokens", 3),
             strategy_card=data.get("strategy_card"),
             passed=data.get("passed", False),
         )

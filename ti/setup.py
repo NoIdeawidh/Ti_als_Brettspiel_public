@@ -20,6 +20,10 @@ DEFAULT_COLORS = [
 
 MECATOL_ID = "s_mec"
 GALAXY_RADIUS = 3
+NEUTRAL = "Neutral"
+HOME_GROUND_FORCES = 2
+MECATOL_GARRISON = 3
+START_TRANSPORTED_INFANTRY = 2
 
 
 def _system_id(hex_: Hex) -> str:
@@ -54,7 +58,7 @@ def build_board(players: Sequence[Player], rng: random.Random) -> Board:
         System(
             id=MECATOL_ID,
             hex=Hex(0, 0),
-            planets=[Planet("Mecatol Rex", resources=1, influence=6)],
+            planets=[_mecatol_rex()],
         )
     ]
 
@@ -68,10 +72,17 @@ def build_board(players: Sequence[Player], rng: random.Random) -> Board:
             controller=player.name,
             home=True,
         )
+        home_planet.ground_forces = [
+            Unit.create("Infantry", player.name) for _ in range(HOME_GROUND_FORCES)
+        ]
         system = System(id=_system_id(hex_), hex=hex_, planets=[home_planet])
         system.add_units(
             player.name,
-            [Unit.create(name, player.name) for name in DEFAULT_START_UNITS],
+            [Unit.create(name, player.name) for name in DEFAULT_START_UNITS]
+            + [
+                Unit.create("Infantry", player.name)
+                for _ in range(START_TRANSPORTED_INFANTRY)
+            ],
         )
         systems.append(system)
 
@@ -90,13 +101,26 @@ def _neutral_systems(home_hexes, rng: random.Random) -> List[System]:
             index += 1
             if rng.random() < 0.55:
                 resources, influence = rng.choice([(1, 1), (2, 0), (0, 2), (3, 1)])
-                planets = [
-                    Planet(f"Planet {index:02d}", resources=resources, influence=influence)
+                planet = Planet(
+                    f"Planet {index:02d}", resources=resources, influence=influence
+                )
+                planet.ground_forces = [
+                    Unit.create("Infantry", NEUTRAL)
+                    for _ in range(rng.randint(0, 2))
                 ]
+                planets = [planet]
             else:
                 planets = []
             systems.append(System(id=_system_id(hex_), hex=hex_, planets=planets))
     return systems
+
+
+def _mecatol_rex() -> Planet:
+    planet = Planet("Mecatol Rex", resources=1, influence=6)
+    planet.ground_forces = [
+        Unit.create("Infantry", NEUTRAL) for _ in range(MECATOL_GARRISON)
+    ]
+    return planet
 
 
 def new_game_state(

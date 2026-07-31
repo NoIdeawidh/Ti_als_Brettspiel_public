@@ -1,8 +1,8 @@
 import random
 
-from ti.combat import assign_hits, resolve_space_combat
+from ti.combat import assign_hits, resolve_ground_combat, resolve_space_combat
 from ti.hexmap import Hex
-from ti.models import System, Unit
+from ti.models import Planet, System, Unit
 
 
 def make_system(units_a, units_b):
@@ -37,3 +37,20 @@ def test_combat_is_deterministic_for_same_seed():
     )
     assert first["winner"] == second["winner"]
     assert len(first["rounds"]) == len(second["rounds"])
+
+
+def test_ground_combat_captures_empty_planet():
+    planet = Planet("Test", controller="B")
+    landing = [Unit.create("Infantry", "A")]
+    report = resolve_ground_combat(planet, "A", landing, random.Random(3))
+    assert report["captured"]
+    assert planet.controller == "A"
+    assert [u.uid for u in planet.ground_forces] == [landing[0].uid]
+
+
+def test_ground_combat_against_overwhelming_garrison():
+    planet = Planet("Test", controller="Neutral")
+    planet.ground_forces = [Unit.create("Infantry", "Neutral") for _ in range(8)]
+    report = resolve_ground_combat(planet, "A", [Unit.create("Infantry", "A")], random.Random(3))
+    assert not report["captured"]
+    assert planet.controller == "Neutral"

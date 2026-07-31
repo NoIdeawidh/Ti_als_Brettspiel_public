@@ -46,7 +46,8 @@ function renderPlayerInfo() {
   if (!player) return;
   q("playerInfo").textContent =
     `${player.faction} · ${player.resources} Ressourcen · ${player.influence} Einfluss · ` +
-    `${player.vp} SP${player.passed ? " · gepasst" : ""}`;
+    `${player.command_tokens} Kommandotokens · ${player.vp} SP` +
+    `${player.passed ? " · gepasst" : ""}`;
 }
 
 function renderUnitList() {
@@ -111,9 +112,15 @@ function renderControls() {
 
   const invadeOptions = [];
   systemsOf(player).forEach(system => {
+    const troops = (system.ships[player] || []).filter(u => !u.ship).length;
     system.planets
       .filter(p => p.controller !== player)
-      .forEach(p => invadeOptions.push({ value: `${system.id}|${p.name}`, label: p.name }));
+      .forEach(p =>
+        invadeOptions.push({
+          value: `${system.id}|${p.name}`,
+          label: `${p.name} (Garnison ${(p.ground_forces || []).length}, gelandet ${troops})`
+        })
+      );
   });
   fillSelect(q("invadePlanet"), invadeOptions);
 
@@ -200,6 +207,6 @@ q("btnPass").onclick = () => act({ type: "pass" });
 
 (async function init() {
   const meta = await fetchUnitTypes();
-  view.unitTypes = (meta.unit_types || []).filter(u => u.ship);
+  view.unitTypes = meta.unit_types || [];
   await refresh();
 })();

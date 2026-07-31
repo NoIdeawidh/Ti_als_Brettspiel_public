@@ -77,24 +77,99 @@ def test_produce_costs_resources(game):
     assert player.resources == 4
 
 
-def test_invade_takes_control_of_planet(game):
+def land_on_neighbour(game, player):
+    """Move a carrier with its infantry to an adjacent planet system."""
+    home = game.board.home_system(player)
+    target = next(
+        s for s in game.board.neighbors(home.id) if s.planets and not s.occupants()
+    )
+    carrier = next(u for u in home.units_of(player) if u.type_name == "Carrier")
+    infantry = [u for u in home.units_of(player) if u.type_name == "Infantry"]
+    assert game.apply_action(
+        player,
+        {
+            "type": "move",
+            "from": home.id,
+            "to": target.id,
+            "units": [carrier.uid] + [u.uid for u in infantry],
+        },
+    ).ok
+    return target, infantry
+
+
+def test_invade_undefended_planet(game):
+    pick_strategy_cards(game)
+    player = game.turns.current_player
+    target, infantry = land_on_neighbour(game, player)
+    planet = target.planets[0]
+    planet.ground_forces = []
+    result = game.apply_action(
+        player,
+        {"type": "invade", "system": target.id, "planet": planet.name},
+    )
+    assert result.ok and result.data["captured"], result.message
+    assert planet.controller == player
+    assert len(planet.ground_forces) == len(infantry)
+    assert not [u for u in target.units_of(player) if u.type_name == "Infantry"]
+
+
+def test_invade_without_ground_forces_fails(game):
     pick_strategy_cards(game)
     player = game.turns.current_player
     home = game.board.home_system(player)
     target = next(
         s for s in game.board.neighbors(home.id) if s.planets and not s.occupants()
     )
-    carrier = next(u for u in home.units_of(player) if u.type_name == "Carrier")
+    cruiser = next(u for u in home.units_of(player) if u.type_name == "Cruiser")
     assert game.apply_action(
         player,
-        {"type": "move", "from": home.id, "to": target.id, "units": [carrier.uid]},
+        {"type": "move", "from": home.id, "to": target.id, "units": [cruiser.uid]},
     ).ok
     result = game.apply_action(
         player,
         {"type": "invade", "system": target.id, "planet": target.planets[0].name},
     )
-    assert result.ok, result.message
-    assert target.planets[0].controller == player
+    assert not result.ok
+    assert "ground forces" in result.message
+
+
+def test_failed_invasion_returns_survivors_to_the_fleet(game):
+    pick_strategy_cards(game)
+    player = game.turns.current_player
+    target, _ = land_on_neighbour(game, player)
+    planet = target.planets[0]
+    planet.ground_forces = [
+        u for u in game.board.home_system(player).planets[0].ground_forces
+    ]
+    for unit in planet.ground_forces:
+        unit.owner = "Neutral"
+    planet.ground_forces *= 6  # overwhelming garrison
+
+    result = game.apply_action(
+        player, {"type": "invade", "system": target.id, "planet": planet.name}
+    )
+    assert result.ok
+    assert not result.data["captured"]
+    assert planet.controller != player
+
+
+def test_command_tokens_limit_activations(game):
+    pick_strategy_cards(game)
+    player_name = game.turns.current_player
+    player = game.get_player(player_name)
+    player.command_tokens = 1
+    player.resources = 9
+    home = game.board.home_system(player_name)
+
+    assert game.apply_action(
+        player_name, {"type": "produce", "system": home.id, "units": ["Fighter"]}
+    ).ok
+    assert player.command_tokens == 0
+    blocked = game.apply_action(
+        player_name, {"type": "produce", "system": home.id, "units": ["Fighter"]}
+    )
+    assert not blocked.ok
+    assert "command tokens" in blocked.message
 
 
 def test_passing_everyone_starts_next_round(game):
