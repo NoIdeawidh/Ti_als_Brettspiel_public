@@ -1,132 +1,108 @@
-from flask import Flask, request, jsonify, send_from_directory
+"""HTTP API and static file server.
+
+The HTTP layer only translates JSON to engine calls - all rules live in the
+:mod:`ti` package.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Optional
+
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-import random
 
-from game import Game
+from ti.cards import STRATEGY_CARD_LIST
+from ti.game import Game
+from ti.store import GameStore
+from ti.units import UNIT_TYPES
 
-app = Flask(__name__, static_folder="static", static_url_path="/static")
-CORS(app)
+BASE_DIR = Path(__file__).resolve().parent
+DEFAULT_SAVE_DIR = BASE_DIR / "saves"
 
-games = {}
-
-@app.route("/")
-def lobby():
-    return send_from_directory(".", "lobby.html")
-
-@app.route("/game")
-def game_page():
-    return send_from_directory(".", "index.html")
-
-@app.route("/api/create", methods=["POST"])
-def create_game():
-    try:
-        data = request.get_json(force=True)
-
-        raw_players = data.get("players", [])
-        factions_map = data.get("factionsMap", {})
-
-        players = []
-        for p in raw_players:
-            name = p["name"] if isinstance(p, dict) else p
-
-            players.append({
-                "name": name,
-                "faction": factions_map.get(name, "Federation"),
-                "resources": 3,
-                "influence": 1,
-                "planets": [],
-                "ships": [],
-                "strategy_card": None,
-                "vp": 0
-            })
-
-        # --- SYSTEM SETUP ---
-        systems = [
-            {
-                "id": "s_mec",
-                "planets": [{
-                    "name": "Mecatol Rex",
-                    "resources": 0,
-                    "influence": 6,
-                    "controller": None,
-                    "home": False
-                }],
-                "ships": {}
-            }
-        ]
-
-        for p in players:
-            sid = f"s_{p['name'].lower()[:5]}"
-            home_planet = p["name"] + " Prime"
-
-            p["planets"].append(home_planet)
-
-            systems.append({
-                "id": sid,
-                "planets": [{
-                    "name": home_planet,
-                    "resources": 2,
-                    "influence": 1,
-                    "controller": p["name"],
-                    "home": True
-                }],
-                "ships": {
-                    p["name"]: [
-                        {
-                            "uid": f"{p['name']}-carrier",
-                            "type": "Carrier",
-                            "combat": 1,
-                            "owner": p["name"]
-                        },
-                        {
-                            "uid": f"{p['name']}-cruiser",
-                            "type": "Cruiser",
-                            "combat": 2,
-                            "owner": p["name"]
-                        }
-                    ]
-                }
-            })
-
-        g = Game(players, systems, random.randint(0, 999999))
-        games[g.id] = g
-
-        return jsonify({
-            "ok": True,
-            "game_id": g.id
-        })
-
-    except Exception as e:
-        # 🔥 ABSOLUT KRITISCH FÜR DEBUG
-        print("CREATE GAME ERROR:", repr(e))
-        return jsonify({
-            "ok": False,
-            "error": str(e)
-        }), 500
+log = logging.getLogger(__name__)
 
 
-@app.route("/api/state")
-def state():
-    gid = request.args.get("game_id")
-    g = games.get(gid)
-    if not g:
-        return jsonify({"ok": False, "error": "game not found"})
-    return jsonify(g.to_dict())
+def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
+    app = Flask(__name__, static_folder="static", static_url_path="/static")
+    CORS(app)
+    store = GameStore(save_dir)
+    app.config["GAME_STORE"] = store
+
+    # ------------------------------------------------------------- pages
+    @app.route("/")
+    def lobby():
+        return send_from_directory(BASE_DIR, "lobby.html")
+
+    @app.route("/game")
+    def game_page():
+        return send_from_directory(BASE_DIR, "index.html")
+
+    # -------------------------------------------------------------- meta
+    @app.route("/api/unit_types")
+    def unit_types():
+        return jsonify({"ok": True, "unit_types": [u.to_dict() for u in UNIT_TYPES.values()]})
+
+    @app.route("/api/strategy_cards")
+    def strategy_cards():
+        return jsonify({"ok": True, "cards": [c.to_dict() for c in STRATEGY_CARD_LIST]})
+
+    @app.route("/api/games")
+    def list_games():
+        return jsonify({"ok": True, "games": store.list_games()})
+
+    # ------------------------------------------------------------- games
+    @app.route("/api/create", methods=["POST"])
+    def create_game():
+        data = request.get_json(force=True, silent=True) or {}
+        try:
+            game = Game.create(
+                data.get("players", []),
+                data.get("factionsMap") or data.get("factions"),
+                data.get("seed"),
+            )
+        except (ValueError, KeyError, TypeError) as exc:
+            log.warning("create game failed: %r", exc)
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        store.add(game)
+        return jsonify({"ok": True, "game_id": game.id})
+
+    @app.route("/api/state")
+    def state():
+        game = store.get(request.args.get("game_id"))
+        if game is None:
+            return jsonify({"ok": False, "error": "game not found"}), 404
+        return jsonify(game.to_dict())
+
+    @app.route("/api/action", methods=["POST"])
+    def action():
+        data = request.get_json(force=True, silent=True) or {}
+        game = store.get(data.get("game_id"))
+        if game is None:
+            return jsonify({"ok": False, "error": "game not found"}), 404
+
+        result = game.apply_action(data.get("player"), data.get("action") or {})
+        if result.ok:
+            store.save(game)
+        return jsonify(result.to_dict())
+
+    @app.route("/api/move", methods=["POST"])
+    def move():
+        """Legacy endpoint kept for older clients."""
+        data = request.get_json(force=True, silent=True) or {}
+        game = store.get(data.get("game_id"))
+        if game is None:
+            return jsonify({"ok": False, "error": "game not found"}), 404
+        result = game.apply_action(data.get("player"), data.get("action") or {})
+        if result.ok:
+            store.save(game)
+        return jsonify(result.to_dict())
+
+    return app
 
 
-@app.route("/api/move", methods=["POST"])
-def move():
-    data = request.json
-    g = games.get(data.get("game_id"))
-    if not g:
-        return jsonify({"ok": False, "error": "game not found"})
-
-    ok, msg = g.apply_action(
-        data.get("player"),
-        data.get("action")
-    )
-
-    return jsonify({"ok": ok, "msg": msg})
+app = create_app()
 
 
 if __name__ == "__main__":
