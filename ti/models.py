@@ -81,9 +81,14 @@ class Planet:
     home: bool = False
     ground_forces: List[Unit] = field(default_factory=list)
     """Units stationed on the planet; their owner defends against invasions."""
+    structures: List[Unit] = field(default_factory=list)
+    """Immobile buildings (Space Dock, PDS) owned by the planet controller."""
 
     def garrison_of(self, owner: Optional[str]) -> List[Unit]:
         return [u for u in self.ground_forces if u.owner == owner]
+
+    def structures_of(self, owner: Optional[str]) -> List[Unit]:
+        return [u for u in self.structures if u.owner == owner]
 
     def defender(self) -> Optional[str]:
         return self.ground_forces[0].owner if self.ground_forces else None
@@ -96,6 +101,7 @@ class Planet:
             "controller": self.controller,
             "home": self.home,
             "ground_forces": [u.to_dict() for u in self.ground_forces],
+            "structures": [u.to_dict() for u in self.structures],
         }
 
     @staticmethod
@@ -107,6 +113,7 @@ class Planet:
             controller=data.get("controller"),
             home=data.get("home", False),
             ground_forces=[Unit.from_dict(u) for u in data.get("ground_forces", [])],
+            structures=[Unit.from_dict(u) for u in data.get("structures", [])],
         )
 
 

@@ -21,6 +21,7 @@ Lobby (`/`) → Spieler anlegen → *Create Game* → Spielansicht (`/game?game_
 | `ti/hexmap.py` | Axiale Hex-Koordinaten, Nachbarschaft, Distanz, Ringe |
 | `ti/units.py` | Einheitentypen (Kosten, Kampfwert, Bewegung, Kapazität) |
 | `ti/cards.py` | Strategiekarten inkl. Initiative und Boni |
+| `ti/objectives.py` | Öffentliche Ziele (Bedingung + Siegpunkte) |
 | `ti/models.py` | Domänenmodell (`Unit`, `Planet`, `System`, `Player`, `Board`) + Serialisierung |
 | `ti/setup.py` | Galaxie- und Spieler-Setup |
 | `ti/combat.py` | Würfelbasierter Raum- und Bodenkampf über mehrere Runden |
@@ -38,12 +39,22 @@ Re-Exports für ältere Importe.
 
 1. **Strategiephase** – jeder Spieler wählt in Sprecherreihenfolge eine Strategiekarte
    (Boni auf Ressourcen/Einfluss/Siegpunkte, Initiative bestimmt die Zugreihenfolge).
-2. **Aktionsphase** – Züge in Initiativreihenfolge: `move`, `produce`, `invade`,
-   `end_turn`, `pass`. `move` und `produce` kosten je ein Kommandotoken
+2. **Aktionsphase** – Züge in Initiativreihenfolge: `move`, `produce`, `build`,
+   `invade`, `end_turn`, `pass`. `move`, `produce` und `build` kosten je ein Kommandotoken
    (Start 3, +2 pro Runde, Leadership/Warfare geben zusätzliche, Maximum 8);
    ohne Token bleibt nur Zug beenden oder passen.
-3. **Statusphase** – Einkommen aus kontrollierten Planeten, Siegpunkte
-   (Mecatol Rex + Kartenbonus), Sprecher rotiert, neue Runde. Bei 10 Siegpunkten endet das Spiel.
+3. **Statusphase** – Einkommen aus kontrollierten Planeten, Wertung der
+   aufgedeckten Ziele, Sprecher rotiert, ein neues Ziel wird aufgedeckt.
+   Bei 10 Siegpunkten endet das Spiel.
+
+Siegpunkte kommen aus **öffentlichen Zielen** (`ti/objectives.py`, ein Ziel pro
+Runde aufgedeckt, jedes Ziel pro Spieler nur einmal wertbar), dem einmaligen
+Custodian-Bonus für den ersten Halter von Mecatol Rex und Kartenboni.
+
+**Bauwerke** (`build`) stehen auf einem kontrollierten Planeten, je Typ einmal:
+Ein *Space Dock* erhöht die Produktionskapazität des Systems um 3, eine *PDS*
+feuert vor dem Bodenkampf auf die landenden Truppen. Bei Verlust des Planeten
+werden die Bauwerke zerstört.
 
 Bewegung ist gültig, wenn die Hex-Distanz die kleinste Bewegungsreichweite der
 bewegten Schiffe nicht übersteigt und genug Transportkapazität für Einheiten ohne

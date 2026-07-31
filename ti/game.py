@@ -9,14 +9,17 @@ from typing import Dict, List, Optional, Sequence
 from ti.cards import STRATEGY_CARD_LIST, get_card
 from ti.engine import ActionResult, Engine
 from ti.models import Board, Player
+from ti.objectives import OBJECTIVE_DECK, get_objective
 from ti.phases import Phase, TurnManager
 from ti.setup import MECATOL_ID, new_game_state
 
 VICTORY_POINTS_TO_WIN = 10
 COMMAND_TOKENS_PER_ROUND = 2
 MAX_COMMAND_TOKENS = 8
-TOKEN_COST = {"move": 1, "produce": 1}
+TOKEN_COST = {"move": 1, "produce": 1, "build": 1}
 """Activation cost per action type; actions not listed here are free."""
+CUSTODIAN_VP = 1
+"""One-off reward for the first player to take Mecatol Rex."""
 
 
 class Game:
@@ -37,6 +40,12 @@ class Game:
         self.turns = TurnManager([p.name for p in self.players])
         self.history: List[str] = [f"Game created seed={seed}"]
         self.winner: Optional[str] = None
+        self.objective_deck: List[str] = [o.id for o in OBJECTIVE_DECK]
+        self.rng.shuffle(self.objective_deck)
+        self.revealed_objectives: List[str] = []
+        self.scored_objectives: Dict[str, List[str]] = {}
+        self.custodian: Optional[str] = None
+        self.reveal_objective()
 
     # ------------------------------------------------------------ factories
     @classmethod
@@ -67,6 +76,17 @@ class Game:
         taken = {p.strategy_card for p in self.players if p.strategy_card}
         return [c.id for c in STRATEGY_CARD_LIST if c.id not in taken]
 
+    def reveal_objective(self) -> Optional[str]:
+        if not self.objective_deck:
+            return None
+        objective_id = self.objective_deck.pop(0)
+        self.revealed_objectives.append(objective_id)
+        self.scored_objectives.setdefault(objective_id, [])
+        objective = get_objective(objective_id)
+        if objective:
+            self.log(f"New objective revealed: {objective.name}")
+        return objective_id
+
     def log(self, message: str) -> None:
         self.history.append(f"[R{self.turns.round}] {message}")
 
@@ -83,6 +103,7 @@ class Game:
             "select_strategy": self._action_select_strategy,
             "move": self._action_move,
             "produce": self._action_produce,
+            "build": self._action_build,
             "invade": self._action_invade,
             "end_turn": self._action_end_turn,
             "pass": self._action_pass,
@@ -164,6 +185,18 @@ class Game:
             player.resources -= int(result.data.get("cost", 0))
         return result
 
+    def _action_build(self, player: Player, action: dict) -> ActionResult:
+        result = self.engine.build(
+            player.name,
+            action.get("system"),
+            action.get("planet"),
+            action.get("structure"),
+            player.resources,
+        )
+        if result.ok:
+            player.resources -= int(result.data.get("cost", 0))
+        return result
+
     def _action_invade(self, player: Player, action: dict) -> ActionResult:
         return self.engine.invade(
             player.name,
@@ -214,17 +247,39 @@ class Game:
             return
 
         self.turns.begin_next_round()
+        self.reveal_objective()
         self.log("New round started")
 
     def _score_victory_points(self, player: Player) -> int:
-        scored = 0
-        mecatol = self.board.get(MECATOL_ID)
-        if mecatol and any(p.controller == player.name for p in mecatol.planets):
-            scored += 1
+        scored = self._score_custodian(player) + self._score_objectives(player)
         card = get_card(player.strategy_card) if player.strategy_card else None
         if card:
             scored += card.bonus_vp
         player.vp += scored
+        return scored
+
+    def _score_custodian(self, player: Player) -> int:
+        """The first player ever to hold Mecatol Rex gets a one-off bonus."""
+        if self.custodian is not None:
+            return 0
+        mecatol = self.board.get(MECATOL_ID)
+        if not mecatol or not any(p.controller == player.name for p in mecatol.planets):
+            return 0
+        self.custodian = player.name
+        self.log(f"{player.name} became custodian of Mecatol Rex")
+        return CUSTODIAN_VP
+
+    def _score_objectives(self, player: Player) -> int:
+        scored = 0
+        for objective_id in self.revealed_objectives:
+            objective = get_objective(objective_id)
+            holders = self.scored_objectives.setdefault(objective_id, [])
+            if objective is None or player.name in holders:
+                continue
+            if objective.is_fulfilled(self.board, player):
+                holders.append(player.name)
+                scored += objective.vp
+                self.log(f"{player.name} scored objective '{objective.name}'")
         return scored
 
     # ---------------------------------------------------------------- state
@@ -244,6 +299,16 @@ class Game:
             ],
             "players": [p.to_dict(self.board) for p in self.players],
             "systems": self.board.to_dict(),
+            "objectives": [
+                dict(
+                    get_objective(oid).to_dict(),
+                    scored_by=list(self.scored_objectives.get(oid, [])),
+                )
+                for oid in self.revealed_objectives
+                if get_objective(oid)
+            ],
+            "objective_deck": list(self.objective_deck),
+            "custodian": self.custodian,
             "history": self.history,
         }
 
@@ -260,6 +325,12 @@ class Game:
         game.turns = TurnManager.from_dict(
             data.get("turn", {}), [p.name for p in players]
         )
+        game.revealed_objectives = [o["id"] for o in data.get("objectives", [])]
+        game.scored_objectives = {
+            o["id"]: list(o.get("scored_by", [])) for o in data.get("objectives", [])
+        }
+        game.objective_deck = list(data.get("objective_deck", []))
+        game.custodian = data.get("custodian")
         game.history = list(data.get("history", []))
         game.winner = data.get("winner")
         return game

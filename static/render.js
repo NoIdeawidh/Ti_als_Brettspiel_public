@@ -71,6 +71,11 @@ function drawSystem(svg, system, state, onSelect, selectedId) {
       );
       group.appendChild(text(center.x + 20, y, String(garrison), 9, "#e6edf3"));
     }
+    (planet.structures || []).forEach((structure, i) => {
+      group.appendChild(
+        text(center.x - 18 - i * 10, y, structure.type === "PDS" ? "⌂" : "⚒", 11, "#f1c40f")
+      );
+    });
   });
 
   if (!system.planets.length) {

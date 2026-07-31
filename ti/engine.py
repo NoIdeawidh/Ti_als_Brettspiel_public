@@ -10,7 +10,12 @@ import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
-from ti.combat import resolve_ground_combat, resolve_space_combat
+from ti.combat import (
+    assign_hits,
+    resolve_ground_combat,
+    resolve_space_combat,
+    roll_dice,
+)
 from ti.models import Board, Planet, System, Unit
 from ti.units import get_unit_type
 
@@ -153,9 +158,25 @@ class Engine:
 
         previous = planet.controller
         system.remove_units(player, [u.uid for u in landing])
+        bombardment = self._planetary_defence(planet, landing)
+        landing = [u for u in landing if u.uid not in set(bombardment["losses"])]
+        if not landing:
+            return ActionResult(
+                True,
+                f"{player} lost the landing party to planetary defences",
+                {
+                    "planet": planet.name,
+                    "captured": False,
+                    "previous_controller": previous,
+                    "planetary_defence": bombardment,
+                },
+            )
+
         report = resolve_ground_combat(planet, player, landing, self.rng)
 
-        if not report["captured"]:
+        if report["captured"]:
+            planet.structures.clear()
+        else:
             survivors = [u for u in landing if u.uid in report["surviving_attackers"]]
             system.add_units(player, survivors)
 
@@ -171,13 +192,32 @@ class Engine:
                 "planet": planet.name,
                 "captured": report["captured"],
                 "previous_controller": previous,
+                "planetary_defence": bombardment,
                 "ground_combat": report,
             },
         )
 
+    def _planetary_defence(self, planet: Planet, landing: List[Unit]) -> dict:
+        """PDS structures fire at the landing party before ground combat."""
+        defences = [u for u in planet.structures if u.combat > 0]
+        if not defences:
+            return {"hits": 0, "losses": []}
+        roll = roll_dice(defences, self.rng)
+        losses = assign_hits(list(landing), int(roll["hits"]))
+        return {"hits": roll["hits"], "losses": [u.uid for u in losses]}
+
     # ------------------------------------------------------------ production
     def production_capacity(self, player: str, system: System) -> int:
-        return sum(2 for p in system.planets if p.controller == player)
+        capacity = 0
+        for planet in system.planets:
+            if planet.controller != player:
+                continue
+            capacity += 2
+            capacity += sum(
+                get_unit_type(u.type_name).production
+                for u in planet.structures_of(player)
+            )
+        return capacity
 
     def produce(
         self, player: str, system_id: str, unit_types: Sequence[str], budget: int
@@ -208,6 +248,11 @@ class Engine:
                 False, f"Not enough resources: need {cost}, have {budget}"
             )
 
+        if any(get_unit_type(name).structure for name in unit_types):
+            return ActionResult(
+                False, "Structures are built with the 'build' action"
+            )
+
         units = [Unit.create(name, player) for name in unit_types]
         ships = [u for u in units if u.is_ship]
         ground = [u for u in units if not u.is_ship]
@@ -219,6 +264,43 @@ class Engine:
             True,
             f"{player} produced {len(units)} unit(s) in {system.id}",
             {"cost": cost, "produced": [u.to_dict() for u in units]},
+        )
+
+    # ------------------------------------------------------------ buildings
+    def build(
+        self, player: str, system_id: str, planet_name: str, structure: str, budget: int
+    ) -> ActionResult:
+        """Place a structure on a controlled planet."""
+        try:
+            system = self.board.require(system_id)
+        except KeyError as exc:
+            return ActionResult(False, str(exc))
+
+        planet = self._find_planet(system, planet_name)
+        if planet is None:
+            return ActionResult(False, f"Unknown planet: {planet_name}")
+        if planet.controller != player:
+            return ActionResult(False, "You do not control this planet")
+
+        try:
+            unit_type = get_unit_type(structure)
+        except ValueError as exc:
+            return ActionResult(False, str(exc))
+        if not unit_type.structure:
+            return ActionResult(False, f"{structure} is not a structure")
+        if any(u.type_name == structure for u in planet.structures):
+            return ActionResult(False, f"{planet.name} already has a {structure}")
+        if unit_type.cost > budget:
+            return ActionResult(
+                False,
+                f"Not enough resources: need {unit_type.cost}, have {budget}",
+            )
+
+        planet.structures.append(Unit.create(structure, player))
+        return ActionResult(
+            True,
+            f"{player} built a {structure} on {planet.name}",
+            {"cost": unit_type.cost, "planet": planet.name, "structure": structure},
         )
 
     @staticmethod
