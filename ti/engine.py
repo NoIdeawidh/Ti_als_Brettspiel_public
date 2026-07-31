@@ -10,7 +10,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
-from ti.combat import resolve_space_combat
+from ti.combat import resolve_ground_combat, resolve_space_combat
 from ti.models import Board, Planet, System, Unit
 from ti.units import get_unit_type
 
@@ -123,7 +123,14 @@ class Engine:
         return report
 
     # ------------------------------------------------------------- invasion
-    def invade(self, player: str, system_id: str, planet_name: str) -> ActionResult:
+    def invade(
+        self,
+        player: str,
+        system_id: str,
+        planet_name: str,
+        unit_uids: Optional[Sequence[str]] = None,
+    ) -> ActionResult:
+        """Land ground forces on a planet, fighting its garrison if needed."""
         try:
             system = self.board.require(system_id)
         except KeyError as exc:
@@ -134,17 +141,38 @@ class Engine:
             return ActionResult(False, f"Unknown planet: {planet_name}")
         if planet.controller == player:
             return ActionResult(False, "Planet is already under your control")
-        if not system.units_of(player):
-            return ActionResult(False, "You have no units in this system")
         if [n for n in system.occupants() if n != player]:
             return ActionResult(False, "Enemy ships still block the system")
 
+        ground_forces = [u for u in system.units_of(player) if not u.is_ship]
+        landing = self._select_units(ground_forces, unit_uids)
+        if not landing:
+            return ActionResult(
+                False, "No ground forces available in this system"
+            )
+
         previous = planet.controller
-        planet.controller = player
+        system.remove_units(player, [u.uid for u in landing])
+        report = resolve_ground_combat(planet, player, landing, self.rng)
+
+        if not report["captured"]:
+            survivors = [u for u in landing if u.uid in report["surviving_attackers"]]
+            system.add_units(player, survivors)
+
+        message = (
+            f"{player} took control of {planet.name}"
+            if report["captured"]
+            else f"{player} failed to capture {planet.name}"
+        )
         return ActionResult(
             True,
-            f"{player} took control of {planet.name}",
-            {"planet": planet.name, "previous_controller": previous},
+            message,
+            {
+                "planet": planet.name,
+                "captured": report["captured"],
+                "previous_controller": previous,
+                "ground_combat": report,
+            },
         )
 
     # ------------------------------------------------------------ production
@@ -181,7 +209,12 @@ class Engine:
             )
 
         units = [Unit.create(name, player) for name in unit_types]
-        system.add_units(player, units)
+        ships = [u for u in units if u.is_ship]
+        ground = [u for u in units if not u.is_ship]
+        system.add_units(player, ships)
+        if ground:
+            home = next(p for p in system.planets if p.controller == player)
+            home.ground_forces.extend(ground)
         return ActionResult(
             True,
             f"{player} produced {len(units)} unit(s) in {system.id}",

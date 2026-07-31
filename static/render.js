@@ -56,6 +56,21 @@ function drawSystem(svg, system, state, onSelect, selectedId) {
       })
     );
     group.appendChild(text(center.x, y + 26, planet.name, 9, "#c8d6e8"));
+    const garrison = (planet.ground_forces || []).length;
+    if (garrison) {
+      group.appendChild(
+        el("rect", {
+          x: center.x + 12,
+          y: y - 8,
+          width: 16,
+          height: 14,
+          rx: 3,
+          fill: "#0b0f18",
+          stroke: "#5b6b8a"
+        })
+      );
+      group.appendChild(text(center.x + 20, y, String(garrison), 9, "#e6edf3"));
+    }
   });
 
   if (!system.planets.length) {

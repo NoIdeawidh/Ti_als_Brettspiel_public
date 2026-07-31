@@ -13,6 +13,10 @@ from ti.phases import Phase, TurnManager
 from ti.setup import MECATOL_ID, new_game_state
 
 VICTORY_POINTS_TO_WIN = 10
+COMMAND_TOKENS_PER_ROUND = 2
+MAX_COMMAND_TOKENS = 8
+TOKEN_COST = {"move": 1, "produce": 1}
+"""Activation cost per action type; actions not listed here are free."""
 
 
 class Game:
@@ -91,8 +95,15 @@ class Game:
         if guard is not None:
             return guard
 
+        cost = TOKEN_COST.get(action_type, 0)
+        if cost and player.command_tokens < cost:
+            return ActionResult(
+                False, "No command tokens left - end the turn or pass"
+            )
+
         result = handler(player, action or {})
         if result.ok:
+            player.command_tokens -= cost
             self.log(result.message)
         return result
 
@@ -122,6 +133,9 @@ class Game:
         player.strategy_card = card.id
         player.resources += card.bonus_resources
         player.influence += card.bonus_influence
+        player.command_tokens = min(
+            MAX_COMMAND_TOKENS, player.command_tokens + card.bonus_tokens
+        )
         self.turns.strategy_picked()
         if self.turns.phase == Phase.ACTION:
             self.turns.begin_action_phase(
@@ -152,7 +166,10 @@ class Game:
 
     def _action_invade(self, player: Player, action: dict) -> ActionResult:
         return self.engine.invade(
-            player.name, action.get("system"), action.get("planet")
+            player.name,
+            action.get("system"),
+            action.get("planet"),
+            action.get("units"),
         )
 
     def _action_end_turn(self, player: Player, action: dict) -> ActionResult:
@@ -183,6 +200,9 @@ class Game:
             if scored:
                 self.log(f"{player.name} scored {scored} victory point(s)")
 
+            player.command_tokens = min(
+                MAX_COMMAND_TOKENS, player.command_tokens + COMMAND_TOKENS_PER_ROUND
+            )
             player.strategy_card = None
             player.passed = False
 

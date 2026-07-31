@@ -10,7 +10,7 @@ from __future__ import annotations
 import random
 from typing import Dict, List, Optional, Sequence
 
-from ti.models import System, Unit
+from ti.models import Planet, System, Unit
 
 MAX_COMBAT_ROUNDS = 20
 
@@ -87,6 +87,62 @@ def resolve_space_combat(
         "defender": defender,
         "rounds": rounds,
         "winner": winner,
+    }
+
+
+def resolve_ground_combat(
+    planet: Planet,
+    attacker: str,
+    attacker_units: List[Unit],
+    rng: random.Random,
+) -> dict:
+    """Fight over ``planet``; surviving attackers stay on the planet.
+
+    ``attacker_units`` are the ground forces landed by ``attacker``; the
+    defenders are the units already stationed on the planet.
+    """
+    defender = planet.defender()
+    landing = list(attacker_units)
+    rounds: List[dict] = []
+
+    for round_number in range(1, MAX_COMBAT_ROUNDS + 1):
+        defenders = list(planet.ground_forces)
+        if not landing or not defenders:
+            break
+
+        attacker_roll = roll_dice(landing, rng)
+        defender_roll = roll_dice(defenders, rng)
+
+        attacker_losses = assign_hits(landing, int(defender_roll["hits"]))
+        defender_losses = assign_hits(defenders, int(attacker_roll["hits"]))
+
+        lost = {u.uid for u in attacker_losses}
+        landing = [u for u in landing if u.uid not in lost]
+        killed = {u.uid for u in defender_losses}
+        planet.ground_forces = [u for u in planet.ground_forces if u.uid not in killed]
+
+        rounds.append(
+            {
+                "round": round_number,
+                "attacker_hits": attacker_roll["hits"],
+                "defender_hits": defender_roll["hits"],
+                "attacker_losses": sorted(lost),
+                "defender_losses": sorted(killed),
+            }
+        )
+
+    captured = bool(landing) and not planet.ground_forces
+    if captured:
+        planet.ground_forces = landing
+        planet.controller = attacker
+
+    return {
+        "planet": planet.name,
+        "attacker": attacker,
+        "defender": defender,
+        "rounds": rounds,
+        "captured": captured,
+        "surviving_attackers": [u.uid for u in landing],
     }
 
 

@@ -23,7 +23,7 @@ Lobby (`/`) → Spieler anlegen → *Create Game* → Spielansicht (`/game?game_
 | `ti/cards.py` | Strategiekarten inkl. Initiative und Boni |
 | `ti/models.py` | Domänenmodell (`Unit`, `Planet`, `System`, `Player`, `Board`) + Serialisierung |
 | `ti/setup.py` | Galaxie- und Spieler-Setup |
-| `ti/combat.py` | Würfelbasierter Raumkampf über mehrere Runden |
+| `ti/combat.py` | Würfelbasierter Raum- und Bodenkampf über mehrere Runden |
 | `ti/engine.py` | Regelprüfung für Aktionen (Bewegung, Produktion, Invasion) |
 | `ti/phases.py` | Rundenstruktur, Zugreihenfolge, Sprecher |
 | `ti/game.py` | Aggregat: Aktionsdispatch, Statusphase, Siegbedingung |
@@ -39,7 +39,9 @@ Re-Exports für ältere Importe.
 1. **Strategiephase** – jeder Spieler wählt in Sprecherreihenfolge eine Strategiekarte
    (Boni auf Ressourcen/Einfluss/Siegpunkte, Initiative bestimmt die Zugreihenfolge).
 2. **Aktionsphase** – Züge in Initiativreihenfolge: `move`, `produce`, `invade`,
-   `end_turn`, `pass`.
+   `end_turn`, `pass`. `move` und `produce` kosten je ein Kommandotoken
+   (Start 3, +2 pro Runde, Leadership/Warfare geben zusätzliche, Maximum 8);
+   ohne Token bleibt nur Zug beenden oder passen.
 3. **Statusphase** – Einkommen aus kontrollierten Planeten, Siegpunkte
    (Mecatol Rex + Kartenbonus), Sprecher rotiert, neue Runde. Bei 10 Siegpunkten endet das Spiel.
 
@@ -48,6 +50,12 @@ bewegten Schiffe nicht übersteigt und genug Transportkapazität für Einheiten 
 eigene Bewegung vorhanden ist. Treffen in einem System Flotten mehrerer Spieler
 aufeinander, wird sofort ein Raumkampf ausgewürfelt (W10, Treffer ≤ Kampfwert,
 günstigste Einheiten sterben zuerst).
+
+Planeten haben Bodentruppen (`Planet.ground_forces`): Heimatplaneten starten mit
+zwei Infanterie, neutrale Planeten mit bis zu zwei, Mecatol Rex mit drei. Eine
+Invasion setzt Raumkontrolle voraus und landet transportierte Infanterie; der
+Bodenkampf läuft nach denselben Würfelregeln. Überlebende Angreifer besetzen den
+Planeten, bei Misserfolg kehren sie an Bord zurück.
 
 ## API
 
