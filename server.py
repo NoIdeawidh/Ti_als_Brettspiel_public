@@ -17,6 +17,7 @@ from ti.cards import STRATEGY_CARD_LIST
 from ti.game import Game
 from ti.objectives import OBJECTIVE_DECK
 from ti.store import GameStore
+from ti.tech import TECHNOLOGY_LIST
 from ti.units import UNIT_TYPES
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -53,6 +54,12 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
     def objectives():
         return jsonify(
             {"ok": True, "objectives": [o.to_dict() for o in OBJECTIVE_DECK]}
+        )
+
+    @app.route("/api/technologies")
+    def technologies():
+        return jsonify(
+            {"ok": True, "technologies": [t.to_dict() for t in TECHNOLOGY_LIST]}
         )
 
     @app.route("/api/games")

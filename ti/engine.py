@@ -288,7 +288,10 @@ class Engine:
             return ActionResult(False, str(exc))
         if not unit_type.structure:
             return ActionResult(False, f"{structure} is not a structure")
-        if any(u.type_name == structure for u in planet.structures):
+        if any(
+            get_unit_type(u.type_name).base_name == unit_type.base_name
+            for u in planet.structures
+        ):
             return ActionResult(False, f"{planet.name} already has a {structure}")
         if unit_type.cost > budget:
             return ActionResult(
