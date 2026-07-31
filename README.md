@@ -39,11 +39,15 @@ Re-Exports für ältere Importe.
 
 ## Spielablauf
 
-1. **Strategiephase** – jeder Spieler wählt in Sprecherreihenfolge eine Strategiekarte
-   (Boni auf Ressourcen/Einfluss/Siegpunkte, Initiative bestimmt die Zugreihenfolge).
-2. **Aktionsphase** – Züge in Initiativreihenfolge: `move`, `produce`, `build`,
-   `research`, `invade`, `end_turn`, `pass`. `move`, `produce`, `build` und
-   `research` kosten je ein Kommandotoken
+1. **Strategiephase** – jeder Spieler wählt in Sprecherreihenfolge eine Strategiekarte;
+   die Initiative bestimmt die Zugreihenfolge. Die Karte wirkt erst, wenn sie
+   ausgespielt wird.
+2. **Aktionsphase** – Züge in Initiativreihenfolge: `play_strategy`, `follow`,
+   `move`, `produce`, `build`, `research`, `invade`, `end_turn`, `pass`.
+   `play_strategy` löst die Primärfähigkeit der eigenen Karte aus (einmal pro
+   Runde), `follow` die schwächere Sekundärfähigkeit einer bereits ausgespielten
+   fremden Karte – einmal pro Karte und Spieler und gegen ein Kommandotoken.
+   `move`, `produce`, `build` und `research` kosten ebenfalls je ein Kommandotoken
    (Start 3, +2 pro Runde, Leadership/Warfare geben zusätzliche, Maximum 8);
    ohne Token bleibt nur Zug beenden oder passen.
 3. **Statusphase** – Einkommen aus kontrollierten Planeten, Wertung der

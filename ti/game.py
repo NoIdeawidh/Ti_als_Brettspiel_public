@@ -15,7 +15,7 @@ from ti.agenda import (
     tally,
     token_maximum,
 )
-from ti.cards import STRATEGY_CARD_LIST, get_card
+from ti.cards import STRATEGY_CARD_LIST, CardEffect, get_card
 from ti.engine import ActionResult, Engine
 from ti.models import Board, Player
 from ti.objectives import OBJECTIVE_DECK, SECRET_DECK, get_objective
@@ -32,7 +32,7 @@ from ti.units import UNIT_TYPES
 VICTORY_POINTS_TO_WIN = 10
 COMMAND_TOKENS_PER_ROUND = 2
 MAX_COMMAND_TOKENS = 8
-TOKEN_COST = {"move": 1, "produce": 1, "build": 1, "research": 1}
+TOKEN_COST = {"move": 1, "produce": 1, "build": 1, "research": 1, "follow": 1}
 """Activation cost per action type; actions not listed here are free."""
 CUSTODIAN_VP = 1
 """One-off reward for the first player to take Mecatol Rex."""
@@ -69,6 +69,9 @@ class Game:
         self.votes: Dict[str, dict] = {}
         self.laws: Dict[str, str] = {}
         """Enacted laws mapped to their outcome (or the elected player)."""
+        self.played_cards: List[int] = []
+        self.followers: Dict[int, List[str]] = {}
+        """Players who already used the secondary ability of a played card."""
         self.secret_deck: List[str] = [o.id for o in SECRET_DECK]
         self.rng.shuffle(self.secret_deck)
         for player in self.players:
@@ -147,6 +150,8 @@ class Game:
             "build": self._action_build,
             "research": self._action_research,
             "vote": self._action_vote,
+            "play_strategy": self._action_play_strategy,
+            "follow": self._action_follow,
             "invade": self._action_invade,
             "end_turn": self._action_end_turn,
             "pass": self._action_pass,
@@ -199,11 +204,6 @@ class Game:
             return ActionResult(False, f"Card {card.name} is already taken")
 
         player.strategy_card = card.id
-        player.resources += card.bonus_resources
-        player.influence += card.bonus_influence
-        player.command_tokens = min(
-            MAX_COMMAND_TOKENS, player.command_tokens + card.bonus_tokens
-        )
         self.turns.strategy_picked()
         if self.turns.phase == Phase.ACTION:
             self.turns.begin_action_phase(
@@ -213,6 +213,51 @@ class Game:
             True,
             f"{player.name} chose {card.name}",
             {"card": card.to_dict()},
+        )
+
+    def _apply_effect(self, player: Player, effect: CardEffect) -> None:
+        player.resources += effect.resources
+        player.influence += effect.influence
+        player.vp += effect.vp
+        player.command_tokens = min(
+            token_maximum(self.laws, MAX_COMMAND_TOKENS),
+            player.command_tokens + effect.tokens,
+        )
+
+    def _action_play_strategy(self, player: Player, action: dict) -> ActionResult:
+        card = get_card(player.strategy_card) if player.strategy_card else None
+        if card is None:
+            return ActionResult(False, f"{player.name} has no strategy card")
+        if card.id in self.played_cards:
+            return ActionResult(False, f"{card.name} was already played this round")
+
+        self.played_cards.append(card.id)
+        self.followers.setdefault(card.id, [])
+        self._apply_effect(player, card.primary)
+        return ActionResult(
+            True,
+            f"{player.name} played {card.name} ({card.primary.describe()})",
+            {"card": card.to_dict(), "effect": card.primary.to_dict()},
+        )
+
+    def _action_follow(self, player: Player, action: dict) -> ActionResult:
+        card = get_card(action.get("card_id", 0))
+        if card is None:
+            return ActionResult(False, "Unknown strategy card")
+        if card.id not in self.played_cards:
+            return ActionResult(False, f"{card.name} has not been played yet")
+        if player.strategy_card == card.id:
+            return ActionResult(False, "The card holder uses the primary ability")
+        followers = self.followers.setdefault(card.id, [])
+        if player.name in followers:
+            return ActionResult(False, f"{player.name} already followed {card.name}")
+
+        followers.append(player.name)
+        self._apply_effect(player, card.secondary)
+        return ActionResult(
+            True,
+            f"{player.name} followed {card.name} ({card.secondary.describe()})",
+            {"card": card.to_dict(), "effect": card.secondary.to_dict()},
         )
 
     def _action_move(self, player: Player, action: dict) -> ActionResult:
@@ -437,6 +482,8 @@ class Game:
         self._begin_next_round()
 
     def _begin_next_round(self) -> None:
+        self.played_cards = []
+        self.followers = {}
         self.turns.begin_next_round()
         self.reveal_objective()
         self.log("New round started")
@@ -447,9 +494,6 @@ class Game:
             + self._score_objectives(player)
             + self._score_secret(player)
         )
-        card = get_card(player.strategy_card) if player.strategy_card else None
-        if card:
-            scored += card.bonus_vp
         player.vp += scored
         return scored
 
@@ -500,6 +544,7 @@ class Game:
             "phase": self.turns.phase,
             "turn": self.turns.to_dict(),
             "winner": self.winner,
+            "strategy_cards": {c.id: c.to_dict() for c in STRATEGY_CARD_LIST},
             "available_strategy_cards": [
                 c.to_dict()
                 for c in STRATEGY_CARD_LIST
@@ -522,6 +567,8 @@ class Game:
             },
             "technologies": [t.to_dict() for t in TECHNOLOGY_LIST],
             "custodian": self.custodian,
+            "played_cards": list(self.played_cards),
+            "followers": {str(k): list(v) for k, v in self.followers.items()},
             "agenda": (
                 dict(
                     get_agenda(self.active_agenda).to_dict(),
@@ -556,6 +603,10 @@ class Game:
         game.objective_deck = list(data.get("objective_deck", []))
         game.secret_deck = list(data.get("secret_deck", []))
         game.custodian = data.get("custodian")
+        game.played_cards = [int(c) for c in data.get("played_cards", [])]
+        game.followers = {
+            int(k): list(v) for k, v in (data.get("followers") or {}).items()
+        }
         agenda = data.get("agenda")
         game.active_agenda = agenda["id"] if agenda else None
         game.votes = dict(agenda.get("votes", {})) if agenda else {}
