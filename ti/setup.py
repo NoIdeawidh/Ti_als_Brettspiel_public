@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ti.factions import DEFAULT_FACTION, get_faction
 from ti.hexmap import Hex, home_positions, ring
 from ti.models import Board, Planet, Player, System, Unit
 from ti.units import DEFAULT_START_UNITS
@@ -36,15 +37,28 @@ def build_players(raw_players: Sequence[object], factions: Optional[Dict[str, st
     for index, raw in enumerate(raw_players):
         if isinstance(raw, dict):
             name = raw["name"]
-            faction = raw.get("faction") or factions.get(name) or "Federation"
+            faction = raw.get("faction") or factions.get(name) or DEFAULT_FACTION
             color = raw.get("color") or DEFAULT_COLORS[index % len(DEFAULT_COLORS)]
         else:
             name = str(raw)
-            faction = factions.get(name, "Federation")
+            faction = factions.get(name, DEFAULT_FACTION)
             color = DEFAULT_COLORS[index % len(DEFAULT_COLORS)]
-        players.append(Player(name=name, faction=faction, color=color))
+        players.append(_apply_faction(Player(name=name, faction=faction, color=color)))
     _reject_duplicates([p.name for p in players])
     return players
+
+
+def _apply_faction(player: Player) -> Player:
+    """Add the faction's starting bonus to a freshly created player."""
+    faction = get_faction(player.faction)
+    if faction is None:
+        return player
+    player.resources += faction.resources
+    player.influence += faction.influence
+    player.trade_goods += faction.trade_goods
+    player.command_tokens += faction.command_tokens
+    player.technologies.extend(faction.technologies)
+    return player
 
 
 def _reject_duplicates(names: Sequence[str]) -> None:
@@ -82,12 +96,18 @@ def build_board(players: Sequence[Player], rng: random.Random) -> Board:
             + [
                 Unit.create("Infantry", player.name)
                 for _ in range(START_TRANSPORTED_INFANTRY)
-            ],
+            ]
+            + [Unit.create(name, player.name) for name in _faction_units(player)],
         )
         systems.append(system)
 
     systems.extend(_neutral_systems(home_hexes, rng))
     return Board(systems)
+
+
+def _faction_units(player: Player) -> Tuple[str, ...]:
+    faction = get_faction(player.faction)
+    return faction.units if faction else ()
 
 
 def _neutral_systems(home_hexes, rng: random.Random) -> List[System]:

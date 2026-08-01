@@ -15,21 +15,24 @@ from ti.models import Planet, System, Unit
 MAX_COMBAT_ROUNDS = 20
 
 
-def roll_dice(units: Sequence[Unit], rng: random.Random) -> Dict[str, object]:
+def roll_dice(
+    units: Sequence[Unit], rng: random.Random, bonus: int = 0
+) -> Dict[str, object]:
     """Roll all combat dice for ``units`` and return rolls plus hit count."""
     rolls: List[dict] = []
     hits = 0
     for unit in units:
         unit_type = unit.unit_type
+        combat = max(1, min(10, unit_type.combat + bonus))
         for _ in range(max(1, unit_type.dice)):
             value = rng.randint(1, 10)
-            hit = value <= unit_type.combat
+            hit = value <= combat
             hits += 1 if hit else 0
             rolls.append(
                 {
                     "uid": unit.uid,
                     "type": unit.type_name,
-                    "combat": unit_type.combat,
+                    "combat": combat,
                     "roll": value,
                     "hit": hit,
                 }
@@ -50,6 +53,7 @@ def resolve_space_combat(
     attacker: str,
     defender: str,
     rng: random.Random,
+    bonuses: Optional[Dict[str, int]] = None,
 ) -> dict:
     """Fight out a space combat inside ``system`` and mutate it in place."""
     rounds: List[dict] = []
@@ -59,8 +63,9 @@ def resolve_space_combat(
         if not attacker_units or not defender_units:
             break
 
-        attacker_roll = roll_dice(attacker_units, rng)
-        defender_roll = roll_dice(defender_units, rng)
+        bonus = bonuses or {}
+        attacker_roll = roll_dice(attacker_units, rng, bonus.get(attacker, 0))
+        defender_roll = roll_dice(defender_units, rng, bonus.get(defender, 0))
 
         attacker_losses = assign_hits(attacker_units, int(defender_roll["hits"]))
         defender_losses = assign_hits(defender_units, int(attacker_roll["hits"]))
@@ -95,6 +100,7 @@ def resolve_ground_combat(
     attacker: str,
     attacker_units: List[Unit],
     rng: random.Random,
+    bonuses: Optional[Dict[str, int]] = None,
 ) -> dict:
     """Fight over ``planet``; surviving attackers stay on the planet.
 
@@ -110,8 +116,11 @@ def resolve_ground_combat(
         if not landing or not defenders:
             break
 
-        attacker_roll = roll_dice(landing, rng)
-        defender_roll = roll_dice(defenders, rng)
+        bonus = bonuses or {}
+        attacker_roll = roll_dice(landing, rng, bonus.get(attacker, 0))
+        defender_roll = roll_dice(
+            defenders, rng, bonus.get(defender, 0) if defender else 0
+        )
 
         attacker_losses = assign_hits(landing, int(defender_roll["hits"]))
         defender_losses = assign_hits(defenders, int(attacker_roll["hits"]))

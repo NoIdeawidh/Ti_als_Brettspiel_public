@@ -59,14 +59,18 @@
   function dbg(...args){ console.log(...args); logArea.textContent += '\\n' + args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '); }
 
   // minimal setup of player rows
-  const factions = ["Arborec","Sardakk","Federation","Clan"];
+  let factions = [{ id: "Federation", name: "Federation of Sol", desc: "" }];
+  fetch('/api/factions')
+    .then(r => r.json())
+    .then(data => { if (data.ok) { factions = data.factions; setupPlayers(parseInt(document.getElementById('numPlayers').value,10)); } })
+    .catch(err => dbg('factions', String(err)));
   const defaultColors = ['#1f6feb','#e85d5d','#6bd26b','#ffd166','#9b59b6','#1abc9c'];
   function setupPlayers(n){
     const c = document.getElementById('playersContainer'); c.innerHTML='';
     for(let i=0;i<n;i++){
       const div = document.createElement('div'); div.className='row';
       const input = document.createElement('input'); input.type = 'text'; input.value='Player'+(i+1); input.id='pname_'+i;
-      const sel = document.createElement('select'); sel.id='pfac_'+i; factions.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o); });
+      const sel = document.createElement('select'); sel.id='pfac_'+i; factions.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.desc ? `${f.name} – ${f.desc}` : f.name; sel.appendChild(o); });
       const color = document.createElement('input'); color.type='color'; color.id='pcolor_'+i; color.value = defaultColors[i % defaultColors.length];
       div.appendChild(input); div.appendChild(sel); div.appendChild(color); c.appendChild(div);
     }
@@ -83,7 +87,7 @@
         const nameElem = document.getElementById('pname_'+i);
         const nm = nameElem ? (nameElem.value.trim() || ('P'+(i+1))) : ('P'+(i+1));
         players.push(nm);
-        factionsMap[nm] = (document.getElementById('pfac_'+i) ? document.getElementById('pfac_'+i).value : factions[0]);
+        factionsMap[nm] = (document.getElementById('pfac_'+i) ? document.getElementById('pfac_'+i).value : factions[0].id);
         colorsMap[nm] = (document.getElementById('pcolor_'+i) ? document.getElementById('pcolor_'+i).value : defaultColors[i % defaultColors.length]);
       }
 

@@ -35,9 +35,16 @@ class RuleError(Exception):
 
 
 class Engine:
-    def __init__(self, board: Board, rng: Optional[random.Random] = None) -> None:
+    def __init__(
+        self,
+        board: Board,
+        rng: Optional[random.Random] = None,
+        combat_bonuses: Optional[Dict[str, int]] = None,
+    ) -> None:
         self.board = board
         self.rng = rng or random.Random()
+        self.combat_bonuses: Dict[str, int] = dict(combat_bonuses or {})
+        """Per player modifier on every combat roll, e.g. from their faction."""
 
     # ------------------------------------------------------------------ move
     def move(
@@ -124,7 +131,9 @@ class Engine:
         ):
             if not system.units_of(attacker):
                 break
-            report = resolve_space_combat(system, attacker, defender, self.rng)
+            report = resolve_space_combat(
+                system, attacker, defender, self.rng, self.combat_bonuses
+            )
         return report
 
     # ------------------------------------------------------------- invasion
@@ -172,7 +181,9 @@ class Engine:
                 },
             )
 
-        report = resolve_ground_combat(planet, player, landing, self.rng)
+        report = resolve_ground_combat(
+            planet, player, landing, self.rng, self.combat_bonuses
+        )
 
         if report["captured"]:
             planet.structures.clear()
