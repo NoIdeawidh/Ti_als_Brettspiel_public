@@ -104,6 +104,9 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
         game = store.get(request.args.get("game_id"))
         if game is None:
             return jsonify({"ok": False, "error": "game not found"}), 404
+        since = request.args.get("since", type=int)
+        if since is not None and since == game.version:
+            return jsonify({"ok": True, "unchanged": True, "version": game.version})
         viewer = request.args.get("player")
         return jsonify(game.to_dict() if viewer is None else game.view_for(viewer))
 

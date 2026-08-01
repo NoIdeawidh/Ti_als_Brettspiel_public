@@ -11,9 +11,12 @@ async function request(url, options) {
   return data;
 }
 
-export function fetchState(gameId, player) {
+export function fetchState(gameId, player, since) {
   const viewer = player ? `&player=${encodeURIComponent(player)}` : "";
-  return request(`/api/state?game_id=${encodeURIComponent(gameId)}${viewer}`);
+  const version = since === undefined || since === null ? "" : `&since=${since}`;
+  return request(
+    `/api/state?game_id=${encodeURIComponent(gameId)}${viewer}${version}`
+  );
 }
 
 export function sendAction(gameId, player, action) {
