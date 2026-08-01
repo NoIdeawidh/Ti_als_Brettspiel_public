@@ -91,6 +91,7 @@ function renderControls() {
   );
 
   renderStrategyActions();
+  renderActionCards();
   fillSelect(
     q("tradePartner"),
     state.players.filter(p => p.name !== player).map(p => ({ value: p.name, label: p.name }))
@@ -168,6 +169,28 @@ function renderControls() {
   renderPlayerInfo();
   renderObjectives();
   renderAgenda();
+}
+
+function renderActionCards() {
+  const state = view.state;
+  const owner = state.players.find(p => p.name === activePlayerName());
+  const catalogue = state.action_cards || {};
+  fillSelect(
+    q("actionCard"),
+    ((owner && owner.action_cards) || [])
+      .filter(id => catalogue[id])
+      .map(id => ({
+        value: id,
+        label: `${catalogue[id].name}: ${catalogue[id].desc}`
+      }))
+  );
+  fillSelect(
+    q("actionCardTarget"),
+    state.players
+      .filter(p => p.name !== activePlayerName())
+      .map(p => ({ value: p.name, label: p.name }))
+  );
+  q("btnPlayActionCard").disabled = !q("actionCard").options.length;
 }
 
 function renderStrategyActions() {
@@ -341,6 +364,13 @@ q("btnBuild").onclick = () => {
 };
 
 q("btnPlayStrategy").onclick = () => act({ type: "play_strategy" });
+
+q("btnPlayActionCard").onclick = () =>
+  act({
+    type: "play_action_card",
+    card: q("actionCard").value,
+    target: q("actionCardTarget").value
+  });
 
 q("btnTrade").onclick = () =>
   act({

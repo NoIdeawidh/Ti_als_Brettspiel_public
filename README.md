@@ -23,6 +23,7 @@ Lobby (`/`) → Spieler anlegen → *Create Game* → Spielansicht (`/game?game_
 | `ti/cards.py` | Strategiekarten inkl. Initiative und Boni |
 | `ti/objectives.py` | Öffentliche Ziele (Bedingung + Siegpunkte) |
 | `ti/tech.py` | Technologien inkl. Voraussetzungen und Einheiten-Upgrades |
+| `ti/action_cards.py` | Aktionskarten (Effekt als Funktion über Spielzustand) |
 | `ti/agenda.py` | Agenden (Gesetze/Direktiven), Abstimmung und Gesetzeswirkungen |
 | `ti/models.py` | Domänenmodell (`Unit`, `Planet`, `System`, `Player`, `Board`) + Serialisierung |
 | `ti/setup.py` | Galaxie- und Spieler-Setup |
@@ -49,7 +50,10 @@ Re-Exports für ältere Importe.
    fremden Karte – einmal pro Karte und Spieler und gegen ein Kommandotoken.
    **Handelsgüter** (Trade-Karte) sind eine zweite Währung: Sie zahlen, was die
    Ressourcen nicht decken, und lassen sich mit `trade` auch außerhalb des eigenen
-   Zuges an Mitspieler abgeben, um Abkommen zu erfüllen.
+   Zuges an Mitspieler abgeben, um Abkommen zu erfüllen. **Aktionskarten**
+   (`play_action_card`) kommen aus einem gemeinsamen Stapel: jeder Spieler zieht
+   in der Statusphase eine Karte (Handlimit 7), gespielte Karten wandern auf den
+   Ablagestapel und werden bei leerem Deck neu gemischt.
    `move`, `produce`, `build` und `research` kosten ebenfalls je ein Kommandotoken
    (Start 3, +2 pro Runde, Leadership/Warfare geben zusätzliche, Maximum 8);
    ohne Token bleibt nur Zug beenden oder passen.
