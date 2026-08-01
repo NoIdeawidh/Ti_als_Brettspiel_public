@@ -241,6 +241,9 @@ class Game:
             token_maximum(self.laws, MAX_COMMAND_TOKENS),
             player.command_tokens + effect.tokens,
         )
+        player.free_research += effect.free_research
+        for _ in range(effect.action_cards):
+            self.draw_action_card(player)
 
     def _action_play_strategy(self, player: Player, action: dict) -> ActionResult:
         card = get_card(player.strategy_card) if player.strategy_card else None
@@ -352,12 +355,16 @@ class Game:
             needed = ", ".join(f"{count}x {color}" for color, count in missing.items())
             return ActionResult(False, f"Missing prerequisites: {needed}")
         cost = technology.cost + research_surcharge(self.laws)
+        if player.free_research:
+            cost = 0
         if cost > player.budget:
             return ActionResult(
                 False,
                 f"Not enough resources: need {cost}, have {player.budget}",
             )
 
+        if player.free_research:
+            player.free_research -= 1
         player.spend(cost)
         player.technologies.append(technology.id)
         upgraded = 0
