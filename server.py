@@ -15,6 +15,7 @@ from flask_cors import CORS
 
 from ti.agenda import AGENDA_LIST
 from ti.cards import STRATEGY_CARD_LIST
+from ti.factions import FACTION_LIST
 from ti.game import Game
 from ti.objectives import OBJECTIVE_DECK
 from ti.store import GameStore
@@ -62,6 +63,10 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
         return jsonify(
             {"ok": True, "technologies": [t.to_dict() for t in TECHNOLOGY_LIST]}
         )
+
+    @app.route("/api/factions")
+    def factions():
+        return jsonify({"ok": True, "factions": [f.to_dict() for f in FACTION_LIST]})
 
     @app.route("/api/agendas")
     def agendas():

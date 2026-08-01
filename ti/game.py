@@ -22,6 +22,7 @@ from ti.action_cards import (
 )
 from ti.cards import STRATEGY_CARD_LIST, CardEffect, get_card
 from ti.engine import ActionResult, Engine
+from ti.factions import FACTION_LIST, combat_bonus
 from ti.models import Board, Player
 from ti.objectives import OBJECTIVE_DECK, SECRET_DECK, get_objective
 from ti.phases import Phase, TurnManager
@@ -61,7 +62,11 @@ class Game:
         self.board = board
         self.seed = seed
         self.rng = rng or random.Random(seed)
-        self.engine = Engine(board, self.rng)
+        self.engine = Engine(
+            board,
+            self.rng,
+            {p.name: combat_bonus(p.faction) for p in self.players},
+        )
         self.turns = TurnManager([p.name for p in self.players])
         self.history: List[str] = [f"Game created seed={seed}"]
         self.winner: Optional[str] = None
@@ -634,6 +639,7 @@ class Game:
             "action_deck": list(self.action_deck),
             "action_discard": list(self.action_discard),
             "action_cards": {c.id: c.to_dict() for c in ACTION_CARD_LIST},
+            "factions": [f.to_dict() for f in FACTION_LIST],
             "secret_objectives": {
                 o.id: o.to_dict() for o in SECRET_DECK
             },
