@@ -104,6 +104,7 @@ Planeten, bei Misserfolg kehren sie an Bord zurück.
 | --- | --- |
 | `POST /api/create` | `{players: [{name, faction, color}], seed?}` → `game_id` |
 | `GET /api/state?game_id=` | Vollständiger Spielzustand |
+| `GET /api/state?game_id=&player=` | Spielersicht: fremde Handkarten, geheime Ziele und verdeckte Stapel sind nur als Anzahl enthalten |
 | `POST /api/action` | `{game_id, player, action}` – siehe Aktionen oben |
 | `POST /api/move` | Alias für `/api/action` (Altclients) |
 | `GET /api/games` | Laufende und gespeicherte Spiele |

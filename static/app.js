@@ -297,7 +297,7 @@ function renderHeader() {
 }
 
 async function refresh() {
-  const state = await fetchState(GAME_ID);
+  const state = await fetchState(GAME_ID, q("activePlayer").value);
   if (!state.ok) {
     setStatus(state.error || "Spiel nicht gefunden", "error");
     return;
@@ -305,7 +305,15 @@ async function refresh() {
   view.state = state;
   view.selectedUnits = new Set();
 
-  fillSelect(q("activePlayer"), state.players.map(p => ({ value: p.name, label: p.name })));
+  fillSelect(
+    q("activePlayer"),
+    state.players.map(p => ({
+      value: p.name,
+      label: p.hidden_action_cards === undefined
+        ? p.name
+        : `${p.name} (${p.hidden_action_cards} Karten verdeckt)`
+    }))
+  );
   if (state.turn.current_player && !q("activePlayer").dataset.locked) {
     q("activePlayer").value = state.turn.current_player;
   }
@@ -337,7 +345,7 @@ async function act(action) {
 q("btnRefresh").onclick = refresh;
 q("activePlayer").onchange = () => {
   q("activePlayer").dataset.locked = "1";
-  renderControls();
+  refresh();
 };
 q("moveFrom").onchange = renderUnitList;
 

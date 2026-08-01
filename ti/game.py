@@ -669,6 +669,25 @@ class Game:
             "history": self.history,
         }
 
+    def view_for(self, viewer: Optional[str]) -> dict:
+        """Serialised state with everything hidden that ``viewer`` may not see.
+
+        Other players keep only the number of their secret objectives and
+        action cards, and the face down decks are reduced to their size.
+        """
+        state = self.to_dict()
+        for player in state["players"]:
+            if player["name"] == viewer:
+                continue
+            player["hidden_secret_objectives"] = len(player["secret_objectives"])
+            player["hidden_action_cards"] = len(player["action_cards"])
+            player["secret_objectives"] = []
+            player["action_cards"] = []
+        for deck in ("secret_deck", "objective_deck", "action_deck"):
+            state[f"{deck}_size"] = len(state[deck])
+            state[deck] = []
+        return state
+
     @staticmethod
     def from_dict(data: dict) -> "Game":
         players = [Player.from_dict(p) for p in data["players"]]

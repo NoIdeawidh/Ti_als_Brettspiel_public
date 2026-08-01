@@ -104,7 +104,8 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
         game = store.get(request.args.get("game_id"))
         if game is None:
             return jsonify({"ok": False, "error": "game not found"}), 404
-        return jsonify(game.to_dict())
+        viewer = request.args.get("player")
+        return jsonify(game.to_dict() if viewer is None else game.view_for(viewer))
 
     @app.route("/api/action", methods=["POST"])
     def action():
