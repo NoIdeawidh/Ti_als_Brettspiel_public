@@ -11,8 +11,9 @@ async function request(url, options) {
   return data;
 }
 
-export function fetchState(gameId) {
-  return request(`/api/state?game_id=${encodeURIComponent(gameId)}`);
+export function fetchState(gameId, player) {
+  const viewer = player ? `&player=${encodeURIComponent(player)}` : "";
+  return request(`/api/state?game_id=${encodeURIComponent(gameId)}${viewer}`);
 }
 
 export function sendAction(gameId, player, action) {
