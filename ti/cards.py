@@ -15,6 +15,7 @@ from typing import Dict, List, Optional
 @dataclass(frozen=True)
 class CardEffect:
     resources: int = 0
+    trade_goods: int = 0
     influence: int = 0
     tokens: int = 0
     vp: int = 0
@@ -22,6 +23,7 @@ class CardEffect:
     def to_dict(self) -> dict:
         return {
             "resources": self.resources,
+            "trade_goods": self.trade_goods,
             "influence": self.influence,
             "tokens": self.tokens,
             "vp": self.vp,
@@ -31,6 +33,8 @@ class CardEffect:
         parts = []
         if self.resources:
             parts.append(f"{self.resources} Ressourcen")
+        if self.trade_goods:
+            parts.append(f"{self.trade_goods} Handelsgüter")
         if self.influence:
             parts.append(f"{self.influence} Einfluss")
         if self.tokens:
@@ -96,8 +100,8 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
         5,
         "Trade",
         "Handelsgewinne",
-        primary=CardEffect(resources=3),
-        secondary=CardEffect(resources=1, influence=1),
+        primary=CardEffect(trade_goods=3),
+        secondary=CardEffect(trade_goods=1),
     ),
     StrategyCard(
         6,

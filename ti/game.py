@@ -34,6 +34,8 @@ COMMAND_TOKENS_PER_ROUND = 2
 MAX_COMMAND_TOKENS = 8
 TOKEN_COST = {"move": 1, "produce": 1, "build": 1, "research": 1, "follow": 1}
 """Activation cost per action type; actions not listed here are free."""
+OFF_TURN_ACTIONS = {"trade"}
+"""Actions that any player may take, not only the one whose turn it is."""
 CUSTODIAN_VP = 1
 """One-off reward for the first player to take Mecatol Rex."""
 SECRETS_PER_PLAYER = 2
@@ -150,6 +152,7 @@ class Game:
             "build": self._action_build,
             "research": self._action_research,
             "vote": self._action_vote,
+            "trade": self._action_trade,
             "play_strategy": self._action_play_strategy,
             "follow": self._action_follow,
             "invade": self._action_invade,
@@ -187,7 +190,7 @@ class Game:
                 False,
                 f"Action '{action_type}' not allowed in phase '{self.turns.phase}'",
             )
-        if expected_phase == Phase.AGENDA:
+        if expected_phase == Phase.AGENDA or action_type in OFF_TURN_ACTIONS:
             return None
         if self.turns.current_player != player.name:
             return ActionResult(
@@ -217,6 +220,7 @@ class Game:
 
     def _apply_effect(self, player: Player, effect: CardEffect) -> None:
         player.resources += effect.resources
+        player.trade_goods += effect.trade_goods
         player.influence += effect.influence
         player.vp += effect.vp
         player.command_tokens = min(
@@ -260,6 +264,28 @@ class Game:
             {"card": card.to_dict(), "effect": card.secondary.to_dict()},
         )
 
+    def _action_trade(self, player: Player, action: dict) -> ActionResult:
+        """Hand trade goods to another player to settle a negotiated deal."""
+        partner = self.get_player(str(action.get("partner", "")))
+        if partner is None or partner.name == player.name:
+            return ActionResult(False, "Unknown trade partner")
+        amount = int(action.get("trade_goods", 0))
+        if amount <= 0:
+            return ActionResult(False, "Trade goods must be positive")
+        if amount > player.trade_goods:
+            return ActionResult(
+                False,
+                f"Not enough trade goods: need {amount}, have {player.trade_goods}",
+            )
+
+        player.trade_goods -= amount
+        partner.trade_goods += amount
+        return ActionResult(
+            True,
+            f"{player.name} gave {amount} trade goods to {partner.name}",
+            {"partner": partner.name, "trade_goods": amount},
+        )
+
     def _action_move(self, player: Player, action: dict) -> ActionResult:
         return self.engine.move(
             player.name,
@@ -280,13 +306,13 @@ class Game:
             needed = ", ".join(f"{count}x {color}" for color, count in missing.items())
             return ActionResult(False, f"Missing prerequisites: {needed}")
         cost = technology.cost + research_surcharge(self.laws)
-        if cost > player.resources:
+        if cost > player.budget:
             return ActionResult(
                 False,
-                f"Not enough resources: need {cost}, have {player.resources}",
+                f"Not enough resources: need {cost}, have {player.budget}",
             )
 
-        player.resources -= cost
+        player.spend(cost)
         player.technologies.append(technology.id)
         upgraded = 0
         if technology.upgrade:
@@ -337,10 +363,10 @@ class Game:
             return ActionResult(False, f"Not researched: {', '.join(missing)}")
         units = [self.unit_type_for(player, name) for name in requested]
         result = self.engine.produce(
-            player.name, action.get("system"), units, player.resources
+            player.name, action.get("system"), units, player.budget
         )
         if result.ok:
-            player.resources -= int(result.data.get("cost", 0))
+            player.spend(int(result.data.get("cost", 0)))
         return result
 
     def _action_build(self, player: Player, action: dict) -> ActionResult:
@@ -352,10 +378,10 @@ class Game:
             action.get("system"),
             action.get("planet"),
             self.unit_type_for(player, action.get("structure") or ""),
-            player.resources,
+            player.budget,
         )
         if result.ok:
-            player.resources -= int(result.data.get("cost", 0))
+            player.spend(int(result.data.get("cost", 0)))
         return result
 
     def _action_invade(self, player: Player, action: dict) -> ActionResult:

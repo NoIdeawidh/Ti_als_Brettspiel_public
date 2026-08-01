@@ -45,7 +45,7 @@ function renderPlayerInfo() {
   const player = view.state.players.find(p => p.name === activePlayerName());
   if (!player) return;
   q("playerInfo").textContent =
-    `${player.faction} · ${player.resources} Ressourcen · ${player.influence} Einfluss · ` +
+    `${player.faction} · ${player.resources} Ressourcen · ${player.trade_goods} Handelsgüter · ${player.influence} Einfluss · ` +
     `${player.command_tokens} Kommandotokens · ${player.vp} SP` +
     `${player.passed ? " · gepasst" : ""}` +
     `${player.technologies.length ? " · Tech: " + player.technologies.length : ""}`;
@@ -91,6 +91,10 @@ function renderControls() {
   );
 
   renderStrategyActions();
+  fillSelect(
+    q("tradePartner"),
+    state.players.filter(p => p.name !== player).map(p => ({ value: p.name, label: p.name }))
+  );
 
   const systemOptions = state.systems.map(s => ({
     value: s.id,
@@ -337,6 +341,13 @@ q("btnBuild").onclick = () => {
 };
 
 q("btnPlayStrategy").onclick = () => act({ type: "play_strategy" });
+
+q("btnTrade").onclick = () =>
+  act({
+    type: "trade",
+    partner: q("tradePartner").value,
+    trade_goods: Number(q("tradeAmount").value)
+  });
 
 q("btnFollow").onclick = () =>
   act({ type: "follow", card_id: Number(q("followCard").value) });

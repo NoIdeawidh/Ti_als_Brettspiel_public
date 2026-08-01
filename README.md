@@ -47,6 +47,9 @@ Re-Exports für ältere Importe.
    `play_strategy` löst die Primärfähigkeit der eigenen Karte aus (einmal pro
    Runde), `follow` die schwächere Sekundärfähigkeit einer bereits ausgespielten
    fremden Karte – einmal pro Karte und Spieler und gegen ein Kommandotoken.
+   **Handelsgüter** (Trade-Karte) sind eine zweite Währung: Sie zahlen, was die
+   Ressourcen nicht decken, und lassen sich mit `trade` auch außerhalb des eigenen
+   Zuges an Mitspieler abgeben, um Abkommen zu erfüllen.
    `move`, `produce`, `build` und `research` kosten ebenfalls je ein Kommandotoken
    (Start 3, +2 pro Runde, Leadership/Warfare geben zusätzliche, Maximum 8);
    ohne Token bleibt nur Zug beenden oder passen.
