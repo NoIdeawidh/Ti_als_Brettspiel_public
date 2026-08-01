@@ -242,6 +242,7 @@ class Game:
             player.command_tokens + effect.tokens,
         )
         player.free_research += effect.free_research
+        player.fleet_supply += effect.fleet_supply
         for _ in range(effect.action_cards):
             self.draw_action_card(player)
 
@@ -341,6 +342,7 @@ class Game:
             action.get("to"),
             action.get("units"),
             player.technologies,
+            player.fleet_supply,
         )
 
     def _action_research(self, player: Player, action: dict) -> ActionResult:
@@ -416,7 +418,11 @@ class Game:
             return ActionResult(False, f"Not researched: {', '.join(missing)}")
         units = [self.unit_type_for(player, name) for name in requested]
         result = self.engine.produce(
-            player.name, action.get("system"), units, player.budget
+            player.name,
+            action.get("system"),
+            units,
+            player.budget,
+            player.fleet_supply,
         )
         if result.ok:
             player.spend(int(result.data.get("cost", 0)))
