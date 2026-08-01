@@ -16,6 +16,11 @@ from ti.combat import (
     resolve_space_combat,
     roll_dice,
 )
+from ti.anomalies import (
+    defender_combat_bonus,
+    entry_blocker,
+    movement_bonus,
+)
 from ti.models import Board, Planet, System, Unit
 from ti.units import get_unit_type
 
@@ -53,6 +58,7 @@ class Engine:
         src_id: str,
         dst_id: str,
         unit_uids: Optional[Sequence[str]] = None,
+        technologies: Sequence[str] = (),
     ) -> ActionResult:
         try:
             src = self.board.require(src_id)
@@ -71,9 +77,13 @@ class Engine:
         if not units:
             return ActionResult(False, "No matching units to move")
 
-        distance = src.hex.distance(dst.hex)
+        blocker = entry_blocker(dst.anomaly, tuple(technologies))
+        if blocker:
+            return ActionResult(False, blocker)
+
+        distance = self.board.distance(src.id, dst.id)
         try:
-            self._validate_movement(units, distance)
+            self._validate_movement(units, distance, movement_bonus(src.anomaly))
         except RuleError as exc:
             return ActionResult(False, str(exc))
 
@@ -98,7 +108,9 @@ class Engine:
         wanted = set(unit_uids)
         return [u for u in available if u.uid in wanted]
 
-    def _validate_movement(self, units: Sequence[Unit], distance: int) -> None:
+    def _validate_movement(
+        self, units: Sequence[Unit], distance: int, bonus: int = 0
+    ) -> None:
         """Ships need enough movement; units without movement need transport."""
         carriers = [u for u in units if u.move > 0]
         passengers = [u for u in units if u.move == 0]
@@ -106,7 +118,7 @@ class Engine:
         if not carriers:
             raise RuleError("Selected units cannot move on their own")
 
-        slowest = min(u.move for u in carriers)
+        slowest = min(u.move for u in carriers) + bonus
         if distance > slowest:
             raise RuleError(
                 f"Distance {distance} exceeds movement range {slowest}"
@@ -132,9 +144,21 @@ class Engine:
             if not system.units_of(attacker):
                 break
             report = resolve_space_combat(
-                system, attacker, defender, self.rng, self.combat_bonuses
+                system,
+                attacker,
+                defender,
+                self.rng,
+                self._combat_bonuses_in(system, defender),
             )
         return report
+
+    def _combat_bonuses_in(self, system: System, defender: str) -> Dict[str, int]:
+        """Faction bonuses plus the defender's advantage inside an anomaly."""
+        bonuses = dict(self.combat_bonuses)
+        anomaly_bonus = defender_combat_bonus(system.anomaly)
+        if anomaly_bonus:
+            bonuses[defender] = bonuses.get(defender, 0) + anomaly_bonus
+        return bonuses
 
     # ------------------------------------------------------------- invasion
     def invade(
