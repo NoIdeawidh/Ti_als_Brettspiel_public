@@ -186,6 +186,8 @@ class Player:
     passed: bool = False
     technologies: List[str] = field(default_factory=list)
     """Researched technology ids; unit upgrades are derived from them."""
+    action_cards: List[str] = field(default_factory=list)
+    """Action cards in hand; one is drawn per status phase."""
     trade_goods: int = 0
     """Universal currency: spent after resources and tradeable between players."""
     secret_objectives: List[str] = field(default_factory=list)
@@ -216,6 +218,7 @@ class Player:
             "passed": self.passed,
             "technologies": list(self.technologies),
             "trade_goods": self.trade_goods,
+            "action_cards": list(self.action_cards),
             "secret_objectives": list(self.secret_objectives),
             "scored_secrets": list(self.scored_secrets),
         }
@@ -238,6 +241,7 @@ class Player:
             passed=data.get("passed", False),
             technologies=list(data.get("technologies", [])),
             trade_goods=data.get("trade_goods", 0),
+            action_cards=list(data.get("action_cards", [])),
             secret_objectives=list(data.get("secret_objectives", [])),
             scored_secrets=list(data.get("scored_secrets", [])),
         )

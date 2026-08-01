@@ -15,6 +15,11 @@ from ti.agenda import (
     tally,
     token_maximum,
 )
+from ti.action_cards import (
+    ACTION_CARD_LIST,
+    HAND_LIMIT,
+    get_action_card,
+)
 from ti.cards import STRATEGY_CARD_LIST, CardEffect, get_card
 from ti.engine import ActionResult, Engine
 from ti.models import Board, Player
@@ -74,6 +79,9 @@ class Game:
         self.played_cards: List[int] = []
         self.followers: Dict[int, List[str]] = {}
         """Players who already used the secondary ability of a played card."""
+        self.action_deck: List[str] = [c.id for c in ACTION_CARD_LIST]
+        self.rng.shuffle(self.action_deck)
+        self.action_discard: List[str] = []
         self.secret_deck: List[str] = [o.id for o in SECRET_DECK]
         self.rng.shuffle(self.secret_deck)
         for player in self.players:
@@ -153,6 +161,7 @@ class Game:
             "research": self._action_research,
             "vote": self._action_vote,
             "trade": self._action_trade,
+            "play_action_card": self._action_play_action_card,
             "play_strategy": self._action_play_strategy,
             "follow": self._action_follow,
             "invade": self._action_invade,
@@ -284,6 +293,37 @@ class Game:
             True,
             f"{player.name} gave {amount} trade goods to {partner.name}",
             {"partner": partner.name, "trade_goods": amount},
+        )
+
+    def draw_action_card(self, player: Player) -> Optional[str]:
+        if not self.action_deck and self.action_discard:
+            self.action_deck = self.action_discard
+            self.action_discard = []
+            self.rng.shuffle(self.action_deck)
+        if not self.action_deck:
+            return None
+        card_id = self.action_deck.pop(0)
+        player.action_cards.append(card_id)
+        return card_id
+
+    def _action_play_action_card(self, player: Player, action: dict) -> ActionResult:
+        card = get_action_card(action.get("card"))
+        if card is None:
+            return ActionResult(False, "Unknown action card")
+        if card.id not in player.action_cards:
+            return ActionResult(False, f"{player.name} does not hold {card.name}")
+
+        try:
+            message = card.effect(self, player, action)
+        except ValueError as exc:
+            return ActionResult(False, str(exc))
+
+        player.action_cards.remove(card.id)
+        self.action_discard.append(card.id)
+        return ActionResult(
+            True,
+            f"{player.name} played {card.name}: {message}",
+            {"card": card.to_dict()},
         )
 
     def _action_move(self, player: Player, action: dict) -> ActionResult:
@@ -492,6 +532,9 @@ class Game:
             )
             player.strategy_card = None
             player.passed = False
+            self.draw_action_card(player)
+            while len(player.action_cards) > HAND_LIMIT:
+                self.action_discard.append(player.action_cards.pop(0))
 
         leader = max(self.players, key=lambda p: p.vp, default=None)
         if leader is not None and leader.vp >= VICTORY_POINTS_TO_WIN:
@@ -588,6 +631,9 @@ class Game:
             ],
             "objective_deck": list(self.objective_deck),
             "secret_deck": list(self.secret_deck),
+            "action_deck": list(self.action_deck),
+            "action_discard": list(self.action_discard),
+            "action_cards": {c.id: c.to_dict() for c in ACTION_CARD_LIST},
             "secret_objectives": {
                 o.id: o.to_dict() for o in SECRET_DECK
             },
@@ -628,6 +674,8 @@ class Game:
         }
         game.objective_deck = list(data.get("objective_deck", []))
         game.secret_deck = list(data.get("secret_deck", []))
+        game.action_deck = list(data.get("action_deck", []))
+        game.action_discard = list(data.get("action_discard", []))
         game.custodian = data.get("custodian")
         game.played_cards = [int(c) for c in data.get("played_cards", [])]
         game.followers = {
