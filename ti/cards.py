@@ -19,6 +19,10 @@ class CardEffect:
     influence: int = 0
     tokens: int = 0
     vp: int = 0
+    action_cards: int = 0
+    """Action cards drawn from the shared deck."""
+    free_research: int = 0
+    """Technologies the player may research without paying resources."""
 
     def to_dict(self) -> dict:
         return {
@@ -27,6 +31,8 @@ class CardEffect:
             "influence": self.influence,
             "tokens": self.tokens,
             "vp": self.vp,
+            "action_cards": self.action_cards,
+            "free_research": self.free_research,
         }
 
     def describe(self) -> str:
@@ -41,6 +47,10 @@ class CardEffect:
             parts.append(f"{self.tokens} Kommandotoken")
         if self.vp:
             parts.append(f"{self.vp} Siegpunkt(e)")
+        if self.action_cards:
+            parts.append(f"{self.action_cards} Aktionskarte(n)")
+        if self.free_research:
+            parts.append(f"{self.free_research} kostenlose Forschung")
         return ", ".join(parts) or "kein Effekt"
 
 
@@ -86,8 +96,8 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
         3,
         "Politics",
         "Politische Einflussnahme",
-        primary=CardEffect(influence=2),
-        secondary=CardEffect(influence=1),
+        primary=CardEffect(influence=2, action_cards=2),
+        secondary=CardEffect(action_cards=1),
     ),
     StrategyCard(
         4,
@@ -114,8 +124,8 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
         7,
         "Technology",
         "Forschungsmittel",
-        primary=CardEffect(resources=2),
-        secondary=CardEffect(resources=1),
+        primary=CardEffect(free_research=2),
+        secondary=CardEffect(free_research=1),
     ),
     StrategyCard(
         8,

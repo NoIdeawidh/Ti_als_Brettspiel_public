@@ -192,6 +192,8 @@ class Player:
     """Researched technology ids; unit upgrades are derived from them."""
     action_cards: List[str] = field(default_factory=list)
     """Action cards in hand; one is drawn per status phase."""
+    free_research: int = 0
+    """Technologies that may be researched without paying resources."""
     trade_goods: int = 0
     """Universal currency: spent after resources and tradeable between players."""
     secret_objectives: List[str] = field(default_factory=list)
@@ -223,6 +225,7 @@ class Player:
             "technologies": list(self.technologies),
             "trade_goods": self.trade_goods,
             "action_cards": list(self.action_cards),
+            "free_research": self.free_research,
             "secret_objectives": list(self.secret_objectives),
             "scored_secrets": list(self.scored_secrets),
         }
@@ -246,6 +249,7 @@ class Player:
             technologies=list(data.get("technologies", [])),
             trade_goods=data.get("trade_goods", 0),
             action_cards=list(data.get("action_cards", [])),
+            free_research=data.get("free_research", 0),
             secret_objectives=list(data.get("secret_objectives", [])),
             scored_secrets=list(data.get("scored_secrets", [])),
         )

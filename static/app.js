@@ -222,6 +222,9 @@ function describeEffect(effect) {
   if (effect.influence) parts.push(`${effect.influence} Einfluss`);
   if (effect.tokens) parts.push(`${effect.tokens} Token`);
   if (effect.vp) parts.push(`${effect.vp} SP`);
+  if (effect.trade_goods) parts.push(`${effect.trade_goods} Handelsgüter`);
+  if (effect.action_cards) parts.push(`${effect.action_cards} Aktionskarten`);
+  if (effect.free_research) parts.push(`${effect.free_research} freie Forschung`);
   return parts.join(", ") || "kein Effekt";
 }
 
