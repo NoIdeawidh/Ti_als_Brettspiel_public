@@ -46,7 +46,7 @@ function renderPlayerInfo() {
   if (!player) return;
   q("playerInfo").textContent =
     `${player.faction} · ${player.resources} Ressourcen · ${player.trade_goods} Handelsgüter · ${player.influence} Einfluss · ` +
-    `${player.command_tokens} Kommandotokens · ${player.vp} SP` +
+    `${player.command_tokens} Kommandotokens · Flotte ${player.fleet_supply} · ${player.vp} SP` +
     `${player.passed ? " · gepasst" : ""}` +
     `${player.technologies.length ? " · Tech: " + player.technologies.length : ""}`;
 }
@@ -225,6 +225,7 @@ function describeEffect(effect) {
   if (effect.trade_goods) parts.push(`${effect.trade_goods} Handelsgüter`);
   if (effect.action_cards) parts.push(`${effect.action_cards} Aktionskarten`);
   if (effect.free_research) parts.push(`${effect.free_research} freie Forschung`);
+  if (effect.fleet_supply) parts.push(`${effect.fleet_supply} Flottenkapazität`);
   return parts.join(", ") || "kein Effekt";
 }
 

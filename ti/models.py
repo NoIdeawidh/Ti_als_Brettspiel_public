@@ -15,6 +15,9 @@ from ti.units import UNIT_TYPES, UnitType, get_unit_type
 
 _uid_counter = itertools.count(1)
 
+DEFAULT_FLEET_SUPPLY = 4
+"""Non-fighter ships a player may keep in a single system."""
+
 
 def next_uid(prefix: str = "u") -> str:
     return f"{prefix}{next(_uid_counter)}"
@@ -45,6 +48,11 @@ class Unit:
     @property
     def is_ship(self) -> bool:
         return self.unit_type.ship
+
+    @property
+    def counts_against_fleet(self) -> bool:
+        """Fighters ride along with the fleet and need no supply of their own."""
+        return self.is_ship and self.unit_type.base_name != "Fighter"
 
     def to_dict(self) -> dict:
         return {
@@ -194,6 +202,8 @@ class Player:
     """Action cards in hand; one is drawn per status phase."""
     free_research: int = 0
     """Technologies that may be researched without paying resources."""
+    fleet_supply: int = DEFAULT_FLEET_SUPPLY
+    """Maximum number of non-fighter ships the player may keep in one system."""
     trade_goods: int = 0
     """Universal currency: spent after resources and tradeable between players."""
     secret_objectives: List[str] = field(default_factory=list)
@@ -226,6 +236,7 @@ class Player:
             "trade_goods": self.trade_goods,
             "action_cards": list(self.action_cards),
             "free_research": self.free_research,
+            "fleet_supply": self.fleet_supply,
             "secret_objectives": list(self.secret_objectives),
             "scored_secrets": list(self.scored_secrets),
         }
@@ -250,6 +261,7 @@ class Player:
             trade_goods=data.get("trade_goods", 0),
             action_cards=list(data.get("action_cards", [])),
             free_research=data.get("free_research", 0),
+            fleet_supply=data.get("fleet_supply", DEFAULT_FLEET_SUPPLY),
             secret_objectives=list(data.get("secret_objectives", [])),
             scored_secrets=list(data.get("scored_secrets", [])),
         )

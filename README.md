@@ -59,6 +59,8 @@ Re-Exports für ältere Importe.
    `move`, `produce`, `build` und `research` kosten ebenfalls je ein Kommandotoken
    (Start 3, +2 pro Runde, Leadership/Warfare geben zusätzliche, Maximum 8);
    ohne Token bleibt nur Zug beenden oder passen.
+   Pro System darf ein Spieler höchstens so viele Nicht-Jäger-Schiffe halten, wie
+   seine Flottenkapazität erlaubt (Start 4, Warfare primär +1); Jäger zählen nicht mit.
 3. **Statusphase** – Einkommen aus kontrollierten Planeten, Wertung der
    aufgedeckten Ziele, Sprecher rotiert, ein neues Ziel wird aufgedeckt.
    Bei 10 Siegpunkten endet das Spiel.

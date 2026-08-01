@@ -59,6 +59,7 @@ class Engine:
         dst_id: str,
         unit_uids: Optional[Sequence[str]] = None,
         technologies: Sequence[str] = (),
+        fleet_supply: Optional[int] = None,
     ) -> ActionResult:
         try:
             src = self.board.require(src_id)
@@ -81,6 +82,10 @@ class Engine:
         if blocker:
             return ActionResult(False, blocker)
 
+        blocker = self._fleet_overflow(dst, player, units, fleet_supply)
+        if blocker:
+            return ActionResult(False, blocker)
+
         distance = self.board.distance(src.id, dst.id)
         try:
             self._validate_movement(units, distance, movement_bonus(src.anomaly))
@@ -99,6 +104,26 @@ class Engine:
         if combat:
             result.data["combat"] = combat
         return result
+
+    def _fleet_overflow(
+        self,
+        system: System,
+        player: str,
+        arriving: Sequence[Unit],
+        fleet_supply: Optional[int],
+    ) -> Optional[str]:
+        """Reason why the fleet would exceed the supply in that system."""
+        if fleet_supply is None:
+            return None
+        present = [u for u in system.units_of(player) if u.counts_against_fleet]
+        incoming = [u for u in arriving if u.counts_against_fleet]
+        total = len(present) + len(incoming)
+        if total <= fleet_supply:
+            return None
+        return (
+            f"Fleet supply {fleet_supply} exceeded in {system.id}: "
+            f"{total} ships would be present"
+        )
 
     def _select_units(
         self, available: List[Unit], unit_uids: Optional[Sequence[str]]
@@ -255,7 +280,12 @@ class Engine:
         return capacity
 
     def produce(
-        self, player: str, system_id: str, unit_types: Sequence[str], budget: int
+        self,
+        player: str,
+        system_id: str,
+        unit_types: Sequence[str],
+        budget: int,
+        fleet_supply: Optional[int] = None,
     ) -> ActionResult:
         """Build units in a system; returns the resource cost in ``data``."""
         try:
@@ -290,6 +320,9 @@ class Engine:
 
         units = [Unit.create(name, player) for name in unit_types]
         ships = [u for u in units if u.is_ship]
+        blocker = self._fleet_overflow(system, player, ships, fleet_supply)
+        if blocker:
+            return ActionResult(False, blocker)
         ground = [u for u in units if not u.is_ship]
         system.add_units(player, ships)
         if ground:

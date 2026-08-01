@@ -23,6 +23,8 @@ class CardEffect:
     """Action cards drawn from the shared deck."""
     free_research: int = 0
     """Technologies the player may research without paying resources."""
+    fleet_supply: int = 0
+    """Permanent increase of the ships allowed in a single system."""
 
     def to_dict(self) -> dict:
         return {
@@ -33,6 +35,7 @@ class CardEffect:
             "vp": self.vp,
             "action_cards": self.action_cards,
             "free_research": self.free_research,
+            "fleet_supply": self.fleet_supply,
         }
 
     def describe(self) -> str:
@@ -51,6 +54,8 @@ class CardEffect:
             parts.append(f"{self.action_cards} Aktionskarte(n)")
         if self.free_research:
             parts.append(f"{self.free_research} kostenlose Forschung")
+        if self.fleet_supply:
+            parts.append(f"{self.fleet_supply} Flottenkapazität")
         return ", ".join(parts) or "kein Effekt"
 
 
@@ -117,7 +122,7 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
         6,
         "Warfare",
         "Kriegsvorbereitung",
-        primary=CardEffect(resources=1, tokens=1),
+        primary=CardEffect(tokens=1, fleet_supply=1),
         secondary=CardEffect(tokens=1),
     ),
     StrategyCard(
