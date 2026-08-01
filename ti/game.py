@@ -69,6 +69,8 @@ class Game:
         )
         self.turns = TurnManager([p.name for p in self.players])
         self.history: List[str] = [f"Game created seed={seed}"]
+        self.version = 0
+        """Increases with every logged change; clients poll it to detect updates."""
         self.winner: Optional[str] = None
         self.objective_deck: List[str] = [o.id for o in OBJECTIVE_DECK]
         self.rng.shuffle(self.objective_deck)
@@ -148,6 +150,7 @@ class Game:
 
     def log(self, message: str) -> None:
         self.history.append(f"[R{self.turns.round}] {message}")
+        self.version += 1
 
     # --------------------------------------------------------------- action
     def apply_action(self, player_name: str, action: dict) -> ActionResult:
@@ -673,6 +676,7 @@ class Game:
             "agenda_deck": list(self.agenda_deck),
             "laws": dict(self.laws),
             "history": self.history,
+            "version": self.version,
         }
 
     def view_for(self, viewer: Optional[str]) -> dict:
@@ -716,6 +720,7 @@ class Game:
         game.action_deck = list(data.get("action_deck", []))
         game.action_discard = list(data.get("action_discard", []))
         game.custodian = data.get("custodian")
+        game.version = int(data.get("version", 0))
         game.played_cards = [int(c) for c in data.get("played_cards", [])]
         game.followers = {
             int(k): list(v) for k, v in (data.get("followers") or {}).items()

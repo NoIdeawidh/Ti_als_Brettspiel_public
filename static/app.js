@@ -297,12 +297,15 @@ function renderHeader() {
     : `Am Zug: ${turn.current_player || "-"} · Sprecher: ${turn.speaker}`;
 }
 
-async function refresh() {
-  const state = await fetchState(GAME_ID, q("activePlayer").value);
+const POLL_INTERVAL_MS = 3000;
+
+async function refresh(since) {
+  const state = await fetchState(GAME_ID, q("activePlayer").value, since);
   if (!state.ok) {
     setStatus(state.error || "Spiel nicht gefunden", "error");
     return;
   }
+  if (state.unchanged) return;
   view.state = state;
   view.selectedUnits = new Set();
 
@@ -343,7 +346,7 @@ async function act(action) {
   await refresh();
 }
 
-q("btnRefresh").onclick = refresh;
+q("btnRefresh").onclick = () => refresh();
 q("activePlayer").onchange = () => {
   q("activePlayer").dataset.locked = "1";
   refresh();
@@ -417,4 +420,5 @@ q("btnPass").onclick = () => act({ type: "pass" });
   const meta = await fetchUnitTypes();
   view.unitTypes = meta.unit_types || [];
   await refresh();
+  setInterval(() => refresh(view.state ? view.state.version : undefined), POLL_INTERVAL_MS);
 })();
