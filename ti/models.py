@@ -186,9 +186,22 @@ class Player:
     passed: bool = False
     technologies: List[str] = field(default_factory=list)
     """Researched technology ids; unit upgrades are derived from them."""
+    trade_goods: int = 0
+    """Universal currency: spent after resources and tradeable between players."""
     secret_objectives: List[str] = field(default_factory=list)
     """Secret objectives in hand; they score only for this player."""
     scored_secrets: List[str] = field(default_factory=list)
+
+    @property
+    def budget(self) -> int:
+        """Everything the player can spend on units, structures and research."""
+        return self.resources + self.trade_goods
+
+    def spend(self, amount: int) -> None:
+        """Pay from resources first, trade goods cover the rest."""
+        from_resources = min(self.resources, amount)
+        self.resources -= from_resources
+        self.trade_goods -= amount - from_resources
 
     def to_dict(self, board: Optional["Board"] = None) -> dict:
         data = {
@@ -202,6 +215,7 @@ class Player:
             "strategy_card": self.strategy_card,
             "passed": self.passed,
             "technologies": list(self.technologies),
+            "trade_goods": self.trade_goods,
             "secret_objectives": list(self.secret_objectives),
             "scored_secrets": list(self.scored_secrets),
         }
@@ -223,6 +237,7 @@ class Player:
             strategy_card=data.get("strategy_card"),
             passed=data.get("passed", False),
             technologies=list(data.get("technologies", [])),
+            trade_goods=data.get("trade_goods", 0),
             secret_objectives=list(data.get("secret_objectives", [])),
             scored_secrets=list(data.get("scored_secrets", [])),
         )
