@@ -124,6 +124,8 @@ class System:
     planets: List[Planet] = field(default_factory=list)
     ships: Dict[str, List[Unit]] = field(default_factory=dict)
     anomaly: Optional[str] = None
+    wormhole: Optional[str] = None
+    """Systems sharing a wormhole are adjacent regardless of their distance."""
 
     @property
     def name(self) -> str:
@@ -151,6 +153,7 @@ class System:
             "id": self.id,
             "hex": self.hex.to_dict(),
             "anomaly": self.anomaly,
+            "wormhole": self.wormhole,
             "planets": [p.to_dict() for p in self.planets],
             "ships": {
                 name: [u.to_dict() for u in units]
@@ -169,6 +172,7 @@ class System:
                 for name, units in (data.get("ships") or {}).items()
             },
             anomaly=data.get("anomaly"),
+            wormhole=data.get("wormhole"),
         )
 
 
@@ -270,12 +274,38 @@ class Board:
         return None
 
     def distance(self, src_id: str, dst_id: str) -> int:
-        return self.require(src_id).hex.distance(self.require(dst_id).hex)
+        """Jumps between two systems; wormholes count as a single jump."""
+        src, dst = self.require(src_id), self.require(dst_id)
+        if not any(s.wormhole for s in self.systems):
+            return src.hex.distance(dst.hex)
+
+        seen = {src.id}
+        frontier = [src]
+        steps = 0
+        while frontier:
+            if any(system.id == dst.id for system in frontier):
+                return steps
+            steps += 1
+            next_frontier: List[System] = []
+            for system in frontier:
+                for neighbour in self.neighbors(system.id):
+                    if neighbour.id not in seen:
+                        seen.add(neighbour.id)
+                        next_frontier.append(neighbour)
+            frontier = next_frontier
+        return src.hex.distance(dst.hex)
 
     def neighbors(self, system_id: str) -> List[System]:
         system = self.require(system_id)
         found = [self.at(h) for h in system.hex.neighbors()]
-        return [s for s in found if s is not None]
+        neighbours = [s for s in found if s is not None]
+        if system.wormhole:
+            neighbours.extend(
+                s
+                for s in self.systems
+                if s.id != system.id and s.wormhole == system.wormhole
+            )
+        return neighbours
 
     def planets_of(self, player_name: str) -> List[Planet]:
         return [

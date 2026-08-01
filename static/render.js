@@ -79,7 +79,10 @@ function drawSystem(svg, system, state, onSelect, selectedId) {
   });
 
   if (!system.planets.length) {
-    group.appendChild(text(center.x, center.y, "∅", 14, "#33415c"));
+    const symbols = { asteroid_field: "✦", nebula: "☁", supernova: "☀", gravity_rift: "◉" };
+    const marker = system.wormhole ? (system.wormhole === "alpha" ? "α" : "β") : symbols[system.anomaly] || "∅";
+    const color = system.wormhole ? "#9b59b6" : system.anomaly ? "#e67e22" : "#33415c";
+    group.appendChild(text(center.x, center.y, marker, 14, color));
   }
 
   owners.forEach(([playerName, units], index) => {

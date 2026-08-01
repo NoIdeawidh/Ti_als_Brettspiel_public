@@ -23,6 +23,7 @@ Lobby (`/`) → Spieler anlegen → *Create Game* → Spielansicht (`/game?game_
 | `ti/cards.py` | Strategiekarten inkl. Initiative und Boni |
 | `ti/objectives.py` | Öffentliche Ziele (Bedingung + Siegpunkte) |
 | `ti/tech.py` | Technologien inkl. Voraussetzungen und Einheiten-Upgrades |
+| `ti/anomalies.py` | Anomalien und Wurmlöcher (Bewegungs- und Kampfwirkung) |
 | `ti/factions.py` | Fraktionen: Startboni, Starttechnologien, Kampfmodifikator |
 | `ti/action_cards.py` | Aktionskarten (Effekt als Funktion über Spielzustand) |
 | `ti/agenda.py` | Agenden (Gesetze/Direktiven), Abstimmung und Gesetzeswirkungen |

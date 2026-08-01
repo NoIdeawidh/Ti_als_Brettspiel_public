@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ti.anomalies import ANOMALY_LIST, WORMHOLES
 from ti.factions import DEFAULT_FACTION, get_faction
 from ti.hexmap import Hex, home_positions, ring
 from ti.models import Board, Planet, Player, System, Unit
@@ -25,6 +26,8 @@ NEUTRAL = "Neutral"
 HOME_GROUND_FORCES = 2
 MECATOL_GARRISON = 3
 START_TRANSPORTED_INFANTRY = 2
+ANOMALY_CHANCE = 0.2
+"""Share of empty systems that receive an anomaly."""
 
 
 def _system_id(hex_: Hex) -> str:
@@ -131,8 +134,23 @@ def _neutral_systems(home_hexes, rng: random.Random) -> List[System]:
                 planets = [planet]
             else:
                 planets = []
-            systems.append(System(id=_system_id(hex_), hex=hex_, planets=planets))
+            system = System(id=_system_id(hex_), hex=hex_, planets=planets)
+            if not planets and rng.random() < ANOMALY_CHANCE:
+                system.anomaly = rng.choice(ANOMALY_LIST).id
+            systems.append(system)
+    _place_wormholes(systems, rng)
     return systems
+
+
+def _place_wormholes(systems: List[System], rng: random.Random) -> None:
+    """Give each wormhole type a pair of otherwise unremarkable systems."""
+    candidates = [s for s in systems if not s.anomaly and not s.planets]
+    for wormhole in WORMHOLES:
+        if len(candidates) < 2:
+            return
+        for system in rng.sample(candidates, 2):
+            system.wormhole = wormhole
+            candidates.remove(system)
 
 
 def _mecatol_rex() -> Planet:

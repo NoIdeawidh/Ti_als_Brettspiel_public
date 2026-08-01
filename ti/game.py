@@ -337,6 +337,7 @@ class Game:
             action.get("from"),
             action.get("to"),
             action.get("units"),
+            player.technologies,
         )
 
     def _action_research(self, player: Player, action: dict) -> ActionResult:
