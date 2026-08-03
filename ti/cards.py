@@ -25,6 +25,8 @@ class CardEffect:
     """Technologies the player may research without paying resources."""
     fleet_supply: int = 0
     """Permanent increase of the ships allowed in a single system."""
+    free_structures: int = 0
+    """Structures the player may build without paying resources."""
 
     def to_dict(self) -> dict:
         return {
@@ -36,6 +38,7 @@ class CardEffect:
             "action_cards": self.action_cards,
             "free_research": self.free_research,
             "fleet_supply": self.fleet_supply,
+            "free_structures": self.free_structures,
         }
 
     def describe(self) -> str:
@@ -56,6 +59,8 @@ class CardEffect:
             parts.append(f"{self.free_research} kostenlose Forschung")
         if self.fleet_supply:
             parts.append(f"{self.fleet_supply} Flottenkapazität")
+        if self.free_structures:
+            parts.append(f"{self.free_structures} kostenlose(s) Bauwerk(e)")
         return ", ".join(parts) or "kein Effekt"
 
 
@@ -107,9 +112,9 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
     StrategyCard(
         4,
         "Construction",
-        "Mittel für Bauwerke",
-        primary=CardEffect(resources=2),
-        secondary=CardEffect(resources=1),
+        "Bauwerke ohne Kosten",
+        primary=CardEffect(free_structures=2),
+        secondary=CardEffect(free_structures=1),
     ),
     StrategyCard(
         5,

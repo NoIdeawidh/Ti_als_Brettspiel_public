@@ -245,6 +245,7 @@ class Game:
             player.command_tokens + effect.tokens,
         )
         player.free_research += effect.free_research
+        player.free_structures += effect.free_structures
         player.fleet_supply += effect.fleet_supply
         for _ in range(effect.action_cards):
             self.draw_action_card(player)
@@ -435,15 +436,20 @@ class Game:
         missing = self._unresearched(player, [action.get("structure") or ""])
         if missing:
             return ActionResult(False, f"Not researched: {', '.join(missing)}")
+        free = player.free_structures > 0
         result = self.engine.build(
             player.name,
             action.get("system"),
             action.get("planet"),
             self.unit_type_for(player, action.get("structure") or ""),
             player.budget,
+            free=free,
         )
         if result.ok:
-            player.spend(int(result.data.get("cost", 0)))
+            if free:
+                player.free_structures -= 1
+            else:
+                player.spend(int(result.data.get("cost", 0)))
         return result
 
     def _action_invade(self, player: Player, action: dict) -> ActionResult:

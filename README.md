@@ -88,7 +88,10 @@ Runde aufgedeckt, jedes Ziel pro Spieler nur einmal wertbar), **geheimen Zielen*
 und zieht danach nach), dem einmaligen Custodian-Bonus für den ersten Halter von
 Mecatol Rex und Kartenboni.
 
-**Bauwerke** (`build`) stehen auf einem kontrollierten Planeten, je Typ einmal:
+**Bauwerke** (`build`) stehen auf einem kontrollierten Planeten, je Typ einmal.
+Die *Construction*-Karte gibt kostenlose Bauwerke (`Player.free_structures`,
+primär 2, sekundär 1): solange ein Guthaben besteht, kostet `build` keine
+Ressourcen.
 Ein *Space Dock* erhöht die Produktionskapazität des Systems um 3, eine *PDS*
 feuert vor dem Bodenkampf auf die landenden Truppen. Bei Verlust des Planeten
 werden die Bauwerke zerstört.
