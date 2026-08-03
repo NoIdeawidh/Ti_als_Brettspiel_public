@@ -1,7 +1,9 @@
 import pytest
 
 from ti.game import Game
+from ti.models import Unit
 from ti.phases import Phase
+from ti.setup import NEUTRAL
 
 
 @pytest.fixture
@@ -138,12 +140,8 @@ def test_failed_invasion_returns_survivors_to_the_fleet(game):
     player = game.turns.current_player
     target, _ = land_on_neighbour(game, player)
     planet = target.planets[0]
-    planet.ground_forces = [
-        u for u in game.board.home_system(player).planets[0].ground_forces
-    ]
-    for unit in planet.ground_forces:
-        unit.owner = "Neutral"
-    planet.ground_forces *= 6  # overwhelming garrison
+    # overwhelming garrison of distinct units
+    planet.ground_forces = [Unit.create("Infantry", NEUTRAL) for _ in range(12)]
 
     result = game.apply_action(
         player, {"type": "invade", "system": target.id, "planet": planet.name}

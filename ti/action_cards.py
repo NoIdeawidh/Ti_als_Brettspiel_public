@@ -88,6 +88,42 @@ def _economic_espionage(game: "Game", player: "Player", action: dict) -> str:
     return f"{player.name} stole {stolen} trade goods from {target.name}"
 
 
+def _focused_research(game: "Game", player: "Player", action: dict) -> str:
+    player.free_research += 1
+    return f"{player.name} may research one technology for free"
+
+
+def _construction_rush(game: "Game", player: "Player", action: dict) -> str:
+    player.free_structures += 1
+    return f"{player.name} may build one structure for free"
+
+
+def _fleet_logistics(game: "Game", player: "Player", action: dict) -> str:
+    player.fleet_supply += 1
+    return f"{player.name} raised their fleet supply"
+
+
+def _diplomatic_pressure(game: "Game", player: "Player", action: dict) -> str:
+    """Lift a diplomatic ban another player placed on a system."""
+    system_id = str(action.get("target", ""))
+    claimant = game.blocked_systems.get(system_id)
+    if claimant is None or claimant == player.name:
+        raise ValueError("No foreign diplomatic ban on this system")
+    del game.blocked_systems[system_id]
+    return f"{player.name} lifted the ban on {system_id}"
+
+
+def _sabotage_runs(game: "Game", player: "Player", action: dict) -> str:
+    target = game.get_player(str(action.get("target", "")))
+    if target is None or target is player:
+        raise ValueError("Unknown target player")
+    if not target.action_cards:
+        raise ValueError(f"{target.name} holds no action cards")
+    discarded = target.action_cards.pop(0)
+    game.action_discard.append(discarded)
+    return f"{target.name} discarded an action card"
+
+
 ACTION_CARD_LIST: List[ActionCard] = [
     ActionCard(
         "reinforcements",
@@ -131,6 +167,38 @@ ACTION_CARD_LIST: List[ActionCard] = [
         "Wirtschaftsspionage",
         "Stiehl einem Mitspieler ein Handelsgut",
         _economic_espionage,
+        needs_target=True,
+    ),
+    ActionCard(
+        "focused_research",
+        "Gezielte Forschung",
+        "Erforsche eine Technologie kostenlos",
+        _focused_research,
+    ),
+    ActionCard(
+        "construction_rush",
+        "Baubeschleunigung",
+        "Errichte ein Bauwerk kostenlos",
+        _construction_rush,
+    ),
+    ActionCard(
+        "fleet_logistics",
+        "Flottenlogistik",
+        "Erhöhe deine Flottenkapazität um 1",
+        _fleet_logistics,
+    ),
+    ActionCard(
+        "diplomatic_pressure",
+        "Diplomatischer Druck",
+        "Hebe die Sperre eines Systems auf",
+        _diplomatic_pressure,
+        needs_target=True,
+    ),
+    ActionCard(
+        "sabotage_runs",
+        "Sabotageeinsätze",
+        "Ein Mitspieler wirft eine Aktionskarte ab",
+        _sabotage_runs,
         needs_target=True,
     ),
 ]

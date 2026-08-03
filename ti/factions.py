@@ -79,6 +79,40 @@ FACTION_LIST: List[Faction] = [
         technologies=("antimass_deflectors", "sarween_tools"),
         combat_bonus=-1,
     ),
+    Faction(
+        "Hacan",
+        "Emirates of Hacan",
+        "Handelsmacht: viele Handelsgüter und mehr Einfluss",
+        trade_goods=4,
+        influence=1,
+    ),
+    Faction(
+        "Xxcha",
+        "Xxcha Kingdom",
+        "Diplomaten: starker Einfluss und ein zusätzliches Kommandotoken",
+        influence=2,
+        command_tokens=1,
+    ),
+    Faction(
+        "Letnev",
+        "Barony of Letnev",
+        "Flottenmacht: startet mit einem Dreadnought, aber wenig Einfluss",
+        influence=-1,
+        units=("Dreadnought",),
+    ),
+    Faction(
+        "Yssaril",
+        "Yssaril Tribes",
+        "Späher: zusätzliche Infanterie und Jäger im Heimatsystem",
+        units=("Infantry", "Fighter", "Fighter"),
+    ),
+    Faction(
+        "Naalu",
+        "Naalu Collective",
+        "Schnell: neuronale Motivation und ein zusätzlicher Jäger",
+        technologies=("neural_motivator",),
+        units=("Fighter",),
+    ),
 ]
 
 FACTIONS: Dict[str, Faction] = {f.id: f for f in FACTION_LIST}
