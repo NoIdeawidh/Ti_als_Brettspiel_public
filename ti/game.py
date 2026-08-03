@@ -249,6 +249,14 @@ class Game:
         player.fleet_supply += effect.fleet_supply
         for _ in range(effect.action_cards):
             self.draw_action_card(player)
+        if effect.trade_goods_others:
+            for other in self.players:
+                if other.name != player.name:
+                    other.trade_goods += effect.trade_goods_others
+        if effect.score_objective:
+            player.vp += self._score_objectives(player)
+        if effect.vp_holding_mecatol and self._holds_mecatol(player):
+            player.vp += effect.vp_holding_mecatol
 
     def _action_play_strategy(self, player: Player, action: dict) -> ActionResult:
         card = get_card(player.strategy_card) if player.strategy_card else None
@@ -594,12 +602,17 @@ class Game:
         player.vp += scored
         return scored
 
+    def _holds_mecatol(self, player: Player) -> bool:
+        mecatol = self.board.get(MECATOL_ID)
+        if mecatol is None:
+            return False
+        return any(p.controller == player.name for p in mecatol.planets)
+
     def _score_custodian(self, player: Player) -> int:
         """The first player ever to hold Mecatol Rex gets a one-off bonus."""
         if self.custodian is not None:
             return 0
-        mecatol = self.board.get(MECATOL_ID)
-        if not mecatol or not any(p.controller == player.name for p in mecatol.planets):
+        if not self._holds_mecatol(player):
             return 0
         self.custodian = player.name
         self.log(f"{player.name} became custodian of Mecatol Rex")

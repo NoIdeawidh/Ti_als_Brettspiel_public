@@ -27,6 +27,12 @@ class CardEffect:
     """Permanent increase of the ships allowed in a single system."""
     free_structures: int = 0
     """Structures the player may build without paying resources."""
+    trade_goods_others: int = 0
+    """Trade goods every *other* player receives."""
+    score_objective: bool = False
+    """Allows scoring a revealed public objective outside the status phase."""
+    vp_holding_mecatol: int = 0
+    """Victory points granted only while the player holds Mecatol Rex."""
 
     def to_dict(self) -> dict:
         return {
@@ -39,6 +45,9 @@ class CardEffect:
             "free_research": self.free_research,
             "fleet_supply": self.fleet_supply,
             "free_structures": self.free_structures,
+            "trade_goods_others": self.trade_goods_others,
+            "score_objective": self.score_objective,
+            "vp_holding_mecatol": self.vp_holding_mecatol,
         }
 
     def describe(self) -> str:
@@ -61,6 +70,16 @@ class CardEffect:
             parts.append(f"{self.fleet_supply} Flottenkapazität")
         if self.free_structures:
             parts.append(f"{self.free_structures} kostenlose(s) Bauwerk(e)")
+        if self.trade_goods_others:
+            parts.append(
+                f"{self.trade_goods_others} Handelsgüter für alle anderen"
+            )
+        if self.score_objective:
+            parts.append("ein öffentliches Ziel werten")
+        if self.vp_holding_mecatol:
+            parts.append(
+                f"{self.vp_holding_mecatol} Siegpunkt(e) bei Mecatol Rex"
+            )
         return ", ".join(parts) or "kein Effekt"
 
 
@@ -120,7 +139,7 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
         5,
         "Trade",
         "Handelsgewinne",
-        primary=CardEffect(trade_goods=3),
+        primary=CardEffect(trade_goods=3, trade_goods_others=1),
         secondary=CardEffect(trade_goods=1),
     ),
     StrategyCard(
@@ -140,8 +159,8 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
     StrategyCard(
         8,
         "Imperial",
-        "Siegpunkt oder Sprecherwirkung",
-        primary=CardEffect(vp=1),
+        "Ziel werten, Siegpunkt für Mecatol Rex",
+        primary=CardEffect(score_objective=True, vp_holding_mecatol=1),
         secondary=CardEffect(influence=2),
     ),
 ]
