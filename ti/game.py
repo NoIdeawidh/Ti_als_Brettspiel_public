@@ -84,6 +84,8 @@ class Game:
         self.laws: Dict[str, str] = {}
         """Enacted laws mapped to their outcome (or the elected player)."""
         self.played_cards: List[int] = []
+        self.blocked_systems: Dict[str, str] = {}
+        """Systems banned by Diplomacy this round, mapped to the claiming player."""
         self.followers: Dict[int, List[str]] = {}
         """Players who already used the secondary ability of a played card."""
         self.action_deck: List[str] = [c.id for c in ACTION_CARD_LIST]
@@ -265,6 +267,12 @@ class Game:
         if card.id in self.played_cards:
             return ActionResult(False, f"{card.name} was already played this round")
 
+        if card.primary.block_system:
+            system_id = str(action.get("system", ""))
+            if self.board.get(system_id) is None:
+                return ActionResult(False, f"Unknown system: {system_id}")
+            self.blocked_systems[system_id] = player.name
+
         self.played_cards.append(card.id)
         self.followers.setdefault(card.id, [])
         self._apply_effect(player, card.primary)
@@ -355,6 +363,11 @@ class Game:
             action.get("units"),
             player.technologies,
             player.fleet_supply,
+            [
+                system_id
+                for system_id, claimant in self.blocked_systems.items()
+                if claimant != player.name
+            ],
         )
 
     def _action_research(self, player: Player, action: dict) -> ActionResult:
@@ -588,6 +601,7 @@ class Game:
 
     def _begin_next_round(self) -> None:
         self.played_cards = []
+        self.blocked_systems = {}
         self.followers = {}
         self.turns.begin_next_round()
         self.reveal_objective()
@@ -682,6 +696,7 @@ class Game:
             "technologies": [t.to_dict() for t in TECHNOLOGY_LIST],
             "custodian": self.custodian,
             "played_cards": list(self.played_cards),
+            "blocked_systems": dict(self.blocked_systems),
             "followers": {str(k): list(v) for k, v in self.followers.items()},
             "agenda": (
                 dict(
@@ -741,6 +756,7 @@ class Game:
         game.custodian = data.get("custodian")
         game.version = int(data.get("version", 0))
         game.played_cards = [int(c) for c in data.get("played_cards", [])]
+        game.blocked_systems = dict(data.get("blocked_systems") or {})
         game.followers = {
             int(k): list(v) for k, v in (data.get("followers") or {}).items()
         }

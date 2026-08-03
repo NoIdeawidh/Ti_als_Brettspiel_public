@@ -60,6 +60,7 @@ class Engine:
         unit_uids: Optional[Sequence[str]] = None,
         technologies: Sequence[str] = (),
         fleet_supply: Optional[int] = None,
+        blocked_systems: Sequence[str] = (),
     ) -> ActionResult:
         try:
             src = self.board.require(src_id)
@@ -77,6 +78,11 @@ class Engine:
         units = self._select_units(available, unit_uids)
         if not units:
             return ActionResult(False, "No matching units to move")
+
+        if dst_id in blocked_systems:
+            return ActionResult(
+                False, f"{dst_id} is under a diplomatic ban this round"
+            )
 
         blocker = entry_blocker(dst.anomaly, tuple(technologies))
         if blocker:

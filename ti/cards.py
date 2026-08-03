@@ -33,6 +33,8 @@ class CardEffect:
     """Allows scoring a revealed public objective outside the status phase."""
     vp_holding_mecatol: int = 0
     """Victory points granted only while the player holds Mecatol Rex."""
+    block_system: bool = False
+    """Bans other players from moving into a chosen system for this round."""
 
     def to_dict(self) -> dict:
         return {
@@ -48,6 +50,7 @@ class CardEffect:
             "trade_goods_others": self.trade_goods_others,
             "score_objective": self.score_objective,
             "vp_holding_mecatol": self.vp_holding_mecatol,
+            "block_system": self.block_system,
         }
 
     def describe(self) -> str:
@@ -80,6 +83,8 @@ class CardEffect:
             parts.append(
                 f"{self.vp_holding_mecatol} Siegpunkt(e) bei Mecatol Rex"
             )
+        if self.block_system:
+            parts.append("ein System sperren")
         return ", ".join(parts) or "kein Effekt"
 
 
@@ -117,8 +122,8 @@ STRATEGY_CARD_LIST: List[StrategyCard] = [
     StrategyCard(
         2,
         "Diplomacy",
-        "Diplomatischer Einfluss",
-        primary=CardEffect(influence=1),
+        "System sperren, Einfluss",
+        primary=CardEffect(influence=1, block_system=True),
         secondary=CardEffect(influence=1),
     ),
     StrategyCard(
