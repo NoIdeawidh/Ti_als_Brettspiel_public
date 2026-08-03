@@ -111,7 +111,49 @@ OBJECTIVE_DECK: List[Objective] = [
         2,
         lambda board, player: _planet_count(board, player) >= 6,
     ),
+    Objective(
+        "industrial_base",
+        "Industrielle Basis",
+        "Habe mindestens 2 Bauwerke im Spiel",
+        1,
+        lambda board, player: _structure_count(board, player) >= 2,
+    ),
+    Objective(
+        "research_program",
+        "Forschungsprogramm",
+        "Besitze mindestens 2 Technologien",
+        1,
+        lambda board, player: len(player.technologies) >= 2,
+    ),
+    Objective(
+        "standing_army",
+        "Stehendes Heer",
+        "Habe mindestens 4 Bodentruppen auf eigenen Planeten",
+        1,
+        lambda board, player: _ground_forces(board, player) >= 4,
+    ),
+    Objective(
+        "deep_space_presence",
+        "Tiefenraumpräsenz",
+        "Habe Schiffe in mindestens 5 Systemen",
+        2,
+        lambda board, player: _systems_with_ships(board, player) >= 5,
+    ),
 ]
+
+
+def _structure_count(board: "Board", player: "Player") -> int:
+    return sum(
+        len(planet.structures_of(player.name))
+        for planet in board.planets_of(player.name)
+    )
+
+
+def _ground_forces(board: "Board", player: "Player") -> int:
+    return sum(
+        len(planet.garrison_of(player.name))
+        for planet in board.planets_of(player.name)
+    )
 
 
 def _foreign_home_planets(board: "Board", player: "Player") -> int:

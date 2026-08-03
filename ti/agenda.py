@@ -93,6 +93,14 @@ def _mutiny(players: List["Player"], outcome: str) -> str:
     return f"{', '.join(p.name for p in leaders)} verliert je 1 Siegpunkt"
 
 
+def _colonial_redistribution(players: List["Player"], outcome: str) -> str:
+    for player in players:
+        if player.name == outcome:
+            player.influence += 2
+            return f"{outcome} erhält 2 Einfluss"
+    return f"{outcome} ist kein Spieler"
+
+
 AGENDA_LIST: List[Agenda] = [
     Agenda(
         "anti_intellectual_revolution",
@@ -135,12 +143,35 @@ AGENDA_LIST: List[Agenda] = [
         DIRECTIVE,
         effect=_mutiny,
     ),
+    Agenda(
+        "shared_research",
+        "Shared Research",
+        "Bei Annahme kostet jede Forschung 1 Ressource weniger",
+        LAW,
+    ),
+    Agenda(
+        "minister_of_war",
+        "Minister of War",
+        "Der gewählte Spieler erhält jede Runde 1 zusätzliches Kommandotoken",
+        LAW,
+        election=ELECT_PLAYER,
+    ),
+    Agenda(
+        "colonial_redistribution",
+        "Colonial Redistribution",
+        "Der gewählte Spieler erhält 2 Einfluss",
+        DIRECTIVE,
+        election=ELECT_PLAYER,
+        effect=_colonial_redistribution,
+    ),
 ]
 
 AGENDAS: Dict[str, Agenda] = {a.id: a for a in AGENDA_LIST}
 
 RESEARCH_SURCHARGE = 2
+RESEARCH_DISCOUNT = 1
 MINISTER_INCOME = 2
+MINISTER_TOKENS = 1
 RESTRICTED_TOKEN_MAXIMUM = 6
 
 
@@ -153,6 +184,8 @@ def research_surcharge(laws: Dict[str, str]) -> int:
     """Extra resource cost per research action."""
     if laws.get("anti_intellectual_revolution") == FOR:
         return RESEARCH_SURCHARGE
+    if laws.get("shared_research") == FOR:
+        return -RESEARCH_DISCOUNT
     return 0
 
 
@@ -165,6 +198,13 @@ def token_maximum(laws: Dict[str, str], default: int) -> int:
 def income_bonus(laws: Dict[str, str], player_name: str) -> int:
     if laws.get("minister_of_industry") == player_name:
         return MINISTER_INCOME
+    return 0
+
+
+def token_bonus(laws: Dict[str, str], player_name: str) -> int:
+    """Extra command tokens the elected minister of war receives per round."""
+    if laws.get("minister_of_war") == player_name:
+        return MINISTER_TOKENS
     return 0
 
 

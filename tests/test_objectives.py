@@ -1,6 +1,7 @@
 import pytest
 
 from ti.game import Game
+from ti.models import Unit
 from ti.objectives import OBJECTIVES, get_objective
 from ti.setup import MECATOL_ID
 
@@ -71,3 +72,19 @@ def test_objectives_survive_serialisation(game):
     assert restored.scored_objectives == game.scored_objectives
     assert restored.objective_deck == game.objective_deck
     assert restored.custodian == game.custodian
+
+
+def test_new_public_objectives_use_board_state():
+    game = Game.create(["Alice", "Bob"], seed=3)
+    alice = game.get_player("Alice")
+    research = get_objective("research_program")
+    industry = get_objective("industrial_base")
+
+    assert not research.is_fulfilled(game.board, alice)
+    alice.technologies = ["antimass_deflectors", "sarween_tools"]
+    assert research.is_fulfilled(game.board, alice)
+
+    planet = game.board.planets_of("Alice")[0]
+    planet.structures.append(Unit.create("PDS", "Alice"))
+    planet.structures.append(Unit.create("Space Dock", "Alice"))
+    assert industry.is_fulfilled(game.board, alice)
