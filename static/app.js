@@ -228,6 +228,11 @@ function describeEffect(effect) {
   if (effect.fleet_supply) parts.push(`${effect.fleet_supply} Flottenkapazität`);
   if (effect.free_structures)
     parts.push(`${effect.free_structures} freie Bauwerke`);
+  if (effect.trade_goods_others)
+    parts.push(`${effect.trade_goods_others} Handelsgüter für alle anderen`);
+  if (effect.score_objective) parts.push("Ziel werten");
+  if (effect.vp_holding_mecatol)
+    parts.push(`${effect.vp_holding_mecatol} SP bei Mecatol Rex`);
   return parts.join(", ") || "kein Effekt";
 }
 

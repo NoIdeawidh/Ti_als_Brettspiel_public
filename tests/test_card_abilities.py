@@ -98,3 +98,33 @@ def test_construction_grants_free_structures():
 
     restored = Game.from_dict(game.to_dict())
     assert restored.get_player("Alice").free_structures == 2
+
+
+def test_trade_primary_pays_every_other_player():
+    game = Game.create(["Alice", "Bob"], seed=11)
+    game.apply_action("Alice", {"type": "select_strategy", "card_id": 5})
+    game.apply_action("Bob", {"type": "select_strategy", "card_id": 7})
+    alice, bob = game.get_player("Alice"), game.get_player("Bob")
+    before = bob.trade_goods
+
+    assert game.apply_action("Alice", {"type": "play_strategy"}).ok
+    assert alice.trade_goods >= 3
+    assert bob.trade_goods == before + 1
+
+
+def test_imperial_scores_only_with_mecatol_rex():
+    game = Game.create(["Alice", "Bob"], seed=11)
+    game.apply_action("Alice", {"type": "select_strategy", "card_id": 8})
+    game.apply_action("Bob", {"type": "select_strategy", "card_id": 7})
+    alice = game.get_player("Alice")
+    game.apply_action("Bob", {"type": "end_turn"})
+
+    assert game.apply_action("Alice", {"type": "play_strategy"}).ok
+    assert alice.vp == 0
+
+    game.played_cards = []
+    for planet in game.board.require("s_mec").planets:
+        planet.controller = "Alice"
+
+    assert game.apply_action("Alice", {"type": "play_strategy"}).ok
+    assert alice.vp == 1
