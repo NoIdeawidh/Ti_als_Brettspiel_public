@@ -29,6 +29,7 @@ Lobby (`/`) → Spieler anlegen → *Create Game* → Spielansicht (`/game?game_
 | `ti/agenda.py` | Agenden (Gesetze/Direktiven), Abstimmung und Gesetzeswirkungen |
 | `ti/models.py` | Domänenmodell (`Unit`, `Planet`, `System`, `Player`, `Board`) + Serialisierung |
 | `ti/setup.py` | Galaxie- und Spieler-Setup |
+| `ti/bot.py` | Bot-Spielweise für Einzelspielerpartien |
 | `ti/combat.py` | Würfelbasierter Raum- und Bodenkampf über mehrere Runden |
 | `ti/engine.py` | Regelprüfung für Aktionen (Bewegung, Produktion, Invasion) |
 | `ti/phases.py` | Rundenstruktur, Zugreihenfolge, Sprecher |
@@ -71,6 +72,16 @@ Re-Exports für ältere Importe.
    `ti/agenda.py` – z. B. höhere Forschungskosten oder ein niedrigeres
    Kommandotoken-Maximum.
 
+## Einzelspieler mit Bots
+
+In der Lobby lässt sich jeder Mitspieler als **Bot** markieren (`bot: true` bei
+`POST /api/create`, gespeichert als `Player.is_bot`). Bots sind normale Spieler:
+`ti/bot.py` wählt nur Aktionen aus und schickt sie über `Game.apply_action`, es
+gelten also dieselben Regeln (Kommandotoken, Flottenkapazität, Anomalien,
+Technologien, Kampf). Nach jeder erfolgreichen menschlichen Aktion ruft der
+Server `act_for_bots(game)` auf, bis wieder ein Mensch am Zug ist; die
+Bot-Meldungen kommen als `bots`-Liste in der Antwort zurück.
+
 Siegpunkte kommen aus **öffentlichen Zielen** (`ti/objectives.py`, ein Ziel pro
 Runde aufgedeckt, jedes Ziel pro Spieler nur einmal wertbar), **geheimen Zielen**
 (`SECRET_DECK`: jeder Spieler hält zwei, wertet höchstens eines pro Statusphase
@@ -104,7 +115,7 @@ Planeten, bei Misserfolg kehren sie an Bord zurück.
 
 | Endpoint | Beschreibung |
 | --- | --- |
-| `POST /api/create` | `{players: [{name, faction, color}], seed?}` → `game_id` |
+| `POST /api/create` | `{players: [{name, faction, color, bot?}], seed?}` → `game_id` |
 | `GET /api/state?game_id=` | Vollständiger Spielzustand |
 | `GET /api/state?game_id=&since=` | Nur geänderte Zustände; bei gleicher `version` kommt `{ok, unchanged, version}` |
 | `GET /api/state?game_id=&player=` | Spielersicht: fremde Handkarten, geheime Ziele und verdeckte Stapel sind nur als Anzahl enthalten |

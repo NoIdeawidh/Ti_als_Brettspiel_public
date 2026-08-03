@@ -15,6 +15,7 @@ from flask_cors import CORS
 
 from ti.agenda import AGENDA_LIST
 from ti.anomalies import ANOMALY_LIST
+from ti.bot import act_for_bots
 from ti.cards import STRATEGY_CARD_LIST
 from ti.factions import FACTION_LIST
 from ti.game import Game
@@ -96,6 +97,7 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
         except (ValueError, KeyError, TypeError) as exc:
             log.warning("create game failed: %r", exc)
             return jsonify({"ok": False, "error": str(exc)}), 400
+        act_for_bots(game)
         store.add(game)
         return jsonify({"ok": True, "game_id": game.id})
 
@@ -119,7 +121,10 @@ def create_app(save_dir: Optional[Path] = DEFAULT_SAVE_DIR) -> Flask:
 
         result = game.apply_action(data.get("player"), data.get("action") or {})
         if result.ok:
+            bot_messages = act_for_bots(game)
             store.save(game)
+            if bot_messages:
+                return jsonify(dict(result.to_dict(), bots=bot_messages))
         return jsonify(result.to_dict())
 
     @app.route("/api/move", methods=["POST"])

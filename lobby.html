@@ -72,7 +72,10 @@
       const input = document.createElement('input'); input.type = 'text'; input.value='Player'+(i+1); input.id='pname_'+i;
       const sel = document.createElement('select'); sel.id='pfac_'+i; factions.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.desc ? `${f.name} – ${f.desc}` : f.name; sel.appendChild(o); });
       const color = document.createElement('input'); color.type='color'; color.id='pcolor_'+i; color.value = defaultColors[i % defaultColors.length];
-      div.appendChild(input); div.appendChild(sel); div.appendChild(color); c.appendChild(div);
+      const botLabel = document.createElement('label'); botLabel.className='small';
+      const bot = document.createElement('input'); bot.type='checkbox'; bot.id='pbot_'+i; bot.checked = i > 0;
+      botLabel.appendChild(bot); botLabel.append(' Bot');
+      div.appendChild(input); div.appendChild(sel); div.appendChild(color); div.appendChild(botLabel); c.appendChild(div);
     }
   }
 
@@ -82,13 +85,14 @@
     try{
       const n = document.querySelectorAll('#playersContainer input[type="text"]').length;
       if(!n){ alert('No players configured'); return; }
-      const players=[]; const factionsMap={}; const colorsMap={};
+      const players=[]; const factionsMap={}; const colorsMap={}; const botsMap={};
       for(let i=0;i<n;i++){
         const nameElem = document.getElementById('pname_'+i);
         const nm = nameElem ? (nameElem.value.trim() || ('P'+(i+1))) : ('P'+(i+1));
         players.push(nm);
         factionsMap[nm] = (document.getElementById('pfac_'+i) ? document.getElementById('pfac_'+i).value : factions[0].id);
         colorsMap[nm] = (document.getElementById('pcolor_'+i) ? document.getElementById('pcolor_'+i).value : defaultColors[i % defaultColors.length]);
+        botsMap[nm] = !!(document.getElementById('pbot_'+i) && document.getElementById('pbot_'+i).checked);
       }
 
       dbg('createGame: sending /api/create', {players, factionsMap});
@@ -96,7 +100,7 @@
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          players: players.map(nm => ({name: nm, faction: factionsMap[nm], color: colorsMap[nm]}))
+          players: players.map(nm => ({name: nm, faction: factionsMap[nm], color: colorsMap[nm], bot: botsMap[nm]}))
         })
       });
       dbg('/api/create response status:', res.status);
