@@ -96,3 +96,49 @@ def test_hand_survives_serialisation(game):
     restored = Game.from_dict(game.to_dict())
     assert restored.get_player("Alice").action_cards == ["war_funding"]
     assert len(restored.to_dict()["action_cards"]) == len(ACTION_CARD_LIST)
+
+
+def test_focused_research_grants_free_research(game):
+    alice = game.get_player("Alice")
+    alice.action_cards = ["focused_research"]
+
+    assert game.apply_action(
+        "Alice", {"type": "play_action_card", "card": "focused_research"}
+    ).ok
+    assert alice.free_research == 1
+
+
+def test_diplomatic_pressure_lifts_a_foreign_ban(game):
+    alice = game.get_player("Alice")
+    alice.action_cards = ["diplomatic_pressure"]
+    system_id = game.board.home_system("Bob").id
+    game.blocked_systems[system_id] = "Bob"
+
+    assert game.apply_action(
+        "Alice",
+        {
+            "type": "play_action_card",
+            "card": "diplomatic_pressure",
+            "target": system_id,
+        },
+    ).ok
+    assert game.blocked_systems == {}
+
+
+def test_sabotage_runs_needs_a_card_to_discard(game):
+    alice, bob = game.get_player("Alice"), game.get_player("Bob")
+    alice.action_cards = ["sabotage_runs"]
+
+    empty = game.apply_action(
+        "Alice",
+        {"type": "play_action_card", "card": "sabotage_runs", "target": "Bob"},
+    )
+    assert not empty.ok
+
+    bob.action_cards = ["war_funding"]
+    assert game.apply_action(
+        "Alice",
+        {"type": "play_action_card", "card": "sabotage_runs", "target": "Bob"},
+    ).ok
+    assert bob.action_cards == []
+    assert "war_funding" in game.action_discard

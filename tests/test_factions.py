@@ -59,3 +59,15 @@ def test_unknown_faction_falls_back_to_plain_start():
 def test_state_exposes_the_faction_catalogue():
     state = make_game({"Alice": "Clan", "Bob": "Federation"}).to_dict()
     assert len(state["factions"]) == len(FACTION_LIST)
+
+
+def test_new_factions_apply_their_starting_bonus():
+    game = make_game({"Alice": "Hacan", "Bob": "Letnev"})
+    hacan, letnev = game.get_player("Alice"), game.get_player("Bob")
+
+    assert hacan.trade_goods == 4
+    assert letnev.influence == 0
+    assert any(
+        u.type_name == "Dreadnought"
+        for u in game.board.home_system("Bob").units_of("Bob")
+    )
