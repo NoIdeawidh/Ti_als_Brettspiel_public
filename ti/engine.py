@@ -336,7 +336,13 @@ class Engine:
 
     # ------------------------------------------------------------ buildings
     def build(
-        self, player: str, system_id: str, planet_name: str, structure: str, budget: int
+        self,
+        player: str,
+        system_id: str,
+        planet_name: str,
+        structure: str,
+        budget: int,
+        free: bool = False,
     ) -> ActionResult:
         """Place a structure on a controlled planet."""
         try:
@@ -361,7 +367,7 @@ class Engine:
             for u in planet.structures
         ):
             return ActionResult(False, f"{planet.name} already has a {structure}")
-        if unit_type.cost > budget:
+        if not free and unit_type.cost > budget:
             return ActionResult(
                 False,
                 f"Not enough resources: need {unit_type.cost}, have {budget}",
@@ -371,7 +377,11 @@ class Engine:
         return ActionResult(
             True,
             f"{player} built a {structure} on {planet.name}",
-            {"cost": unit_type.cost, "planet": planet.name, "structure": structure},
+            {
+                "cost": 0 if free else unit_type.cost,
+                "planet": planet.name,
+                "structure": structure,
+            },
         )
 
     @staticmethod

@@ -61,3 +61,40 @@ def test_free_research_survives_serialisation(game):
 
     restored = Game.from_dict(game.to_dict())
     assert restored.get_player("Alice").free_research == 2
+
+
+def test_construction_builds_without_resources(game):
+    alice = game.get_player("Alice")
+    alice.free_structures = 1
+    alice.resources = 0
+    alice.trade_goods = 0
+    planet = game.board.planets_of("Alice")[0]
+    system = next(s for s in game.board.systems if planet in s.planets)
+
+    result = game.apply_action(
+        "Alice",
+        {
+            "type": "build",
+            "system": system.id,
+            "planet": planet.name,
+            "structure": "Space Dock",
+        },
+    )
+
+    assert result.ok, result.message
+    assert alice.free_structures == 0
+    assert alice.resources == 0
+    assert alice.trade_goods == 0
+
+
+def test_construction_grants_free_structures():
+    game = Game.create(["Alice", "Bob"], seed=11)
+    game.apply_action("Alice", {"type": "select_strategy", "card_id": 4})
+    game.apply_action("Bob", {"type": "select_strategy", "card_id": 7})
+    alice = game.get_player("Alice")
+
+    assert game.apply_action("Alice", {"type": "play_strategy"}).ok
+    assert alice.free_structures == 2
+
+    restored = Game.from_dict(game.to_dict())
+    assert restored.get_player("Alice").free_structures == 2

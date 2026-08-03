@@ -226,6 +226,8 @@ function describeEffect(effect) {
   if (effect.action_cards) parts.push(`${effect.action_cards} Aktionskarten`);
   if (effect.free_research) parts.push(`${effect.free_research} freie Forschung`);
   if (effect.fleet_supply) parts.push(`${effect.fleet_supply} Flottenkapazität`);
+  if (effect.free_structures)
+    parts.push(`${effect.free_structures} freie Bauwerke`);
   return parts.join(", ") || "kein Effekt";
 }
 

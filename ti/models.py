@@ -202,6 +202,8 @@ class Player:
     """Action cards in hand; one is drawn per status phase."""
     free_research: int = 0
     """Technologies that may be researched without paying resources."""
+    free_structures: int = 0
+    """Structures that may be built without paying resources."""
     is_bot: bool = False
     """Bots are played by :mod:`ti.bot` and follow the same rules."""
     fleet_supply: int = DEFAULT_FLEET_SUPPLY
@@ -238,6 +240,7 @@ class Player:
             "trade_goods": self.trade_goods,
             "action_cards": list(self.action_cards),
             "free_research": self.free_research,
+            "free_structures": self.free_structures,
             "fleet_supply": self.fleet_supply,
             "is_bot": self.is_bot,
             "secret_objectives": list(self.secret_objectives),
@@ -264,6 +267,7 @@ class Player:
             trade_goods=data.get("trade_goods", 0),
             action_cards=list(data.get("action_cards", [])),
             free_research=data.get("free_research", 0),
+            free_structures=data.get("free_structures", 0),
             fleet_supply=data.get("fleet_supply", DEFAULT_FLEET_SUPPLY),
             is_bot=data.get("is_bot", False),
             secret_objectives=list(data.get("secret_objectives", [])),

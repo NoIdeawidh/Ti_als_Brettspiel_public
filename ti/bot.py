@@ -22,6 +22,9 @@ MAX_BOT_ACTIONS = 200
 PRODUCTION_ORDER = ["Cruiser", "Carrier", "Infantry", "Fighter"]
 """Units a bot tries to build, most valuable first."""
 
+STRUCTURE_ORDER = ["Space Dock", "PDS"]
+"""Structures a bot places when Construction granted free ones."""
+
 
 def next_action(game: "Game", player: Player) -> Optional[dict]:
     """The action the bot wants to take now, or ``None`` to stay idle."""
@@ -34,6 +37,7 @@ def next_action(game: "Game", player: Player) -> Optional[dict]:
     return (
         _play_strategy(game, player)
         or _invade(game, player)
+        or _build(game, player)
         or _produce(game, player)
         or _advance(game, player)
         or {"type": "pass"}
@@ -120,6 +124,28 @@ def _invade(game: "Game", player: Player) -> Optional[dict]:
                     "system": system.id,
                     "planet": planet.name,
                 }
+    return None
+
+
+def _build(game: "Game", player: Player) -> Optional[dict]:
+    """Spend free structures from Construction while they last."""
+    if player.command_tokens < 1 or player.free_structures < 1:
+        return None
+    for system in game.board.systems:
+        for planet in system.planets:
+            if planet.controller != player.name:
+                continue
+            existing = {
+                get_unit_type(u.type_name).base_name for u in planet.structures
+            }
+            for structure in STRUCTURE_ORDER:
+                if structure not in existing:
+                    return {
+                        "type": "build",
+                        "system": system.id,
+                        "planet": planet.name,
+                        "structure": structure,
+                    }
     return None
 
 
