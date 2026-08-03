@@ -1,6 +1,6 @@
 import pytest
 
-from ti.agenda import AGAINST, FOR, tally
+from ti.agenda import AGAINST, FOR, research_surcharge, tally, token_bonus
 from ti.game import Game
 from ti.phases import Phase
 from ti.setup import MECATOL_ID
@@ -133,3 +133,13 @@ def test_agenda_state_survives_serialisation(game):
     assert restored.active_agenda == "minister_of_industry"
     assert restored.votes["Alice"]["influence"] == 2
     assert restored.turns.phase == Phase.AGENDA
+
+
+def test_shared_research_lowers_the_research_cost():
+    assert research_surcharge({"shared_research": FOR}) == -1
+    assert research_surcharge({"shared_research": AGAINST}) == 0
+
+
+def test_minister_of_war_grants_an_extra_token_per_round():
+    assert token_bonus({"minister_of_war": "Alice"}, "Alice") == 1
+    assert token_bonus({"minister_of_war": "Alice"}, "Bob") == 0

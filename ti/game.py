@@ -13,6 +13,7 @@ from ti.agenda import (
     income_bonus,
     research_surcharge,
     tally,
+    token_bonus,
     token_maximum,
 )
 from ti.action_cards import (
@@ -577,7 +578,9 @@ class Game:
 
             player.command_tokens = min(
                 token_maximum(self.laws, MAX_COMMAND_TOKENS),
-                player.command_tokens + COMMAND_TOKENS_PER_ROUND,
+                player.command_tokens
+                + COMMAND_TOKENS_PER_ROUND
+                + token_bonus(self.laws, player.name),
             )
             player.strategy_card = None
             player.passed = False
