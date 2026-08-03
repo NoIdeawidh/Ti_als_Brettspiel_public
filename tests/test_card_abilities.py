@@ -128,3 +128,54 @@ def test_imperial_scores_only_with_mecatol_rex():
 
     assert game.apply_action("Alice", {"type": "play_strategy"}).ok
     assert alice.vp == 1
+
+
+def test_diplomacy_blocks_the_chosen_system_for_others():
+    game = Game.create(["Alice", "Bob"], seed=11)
+    game.apply_action("Alice", {"type": "select_strategy", "card_id": 2})
+    game.apply_action("Bob", {"type": "select_strategy", "card_id": 7})
+    home = game.board.home_system("Alice")
+    neighbour = game.board.neighbors(home.id)[0]
+
+    assert game.apply_action(
+        "Alice", {"type": "play_strategy", "system": neighbour.id}
+    ).ok
+    assert game.blocked_systems == {neighbour.id: "Alice"}
+
+    bob_home = game.board.home_system("Bob")
+    ship = next(u for u in bob_home.units_of("Bob") if u.is_ship)
+    game.apply_action("Alice", {"type": "end_turn"})
+    blocked = game.apply_action(
+        "Bob",
+        {
+            "type": "move",
+            "from": bob_home.id,
+            "to": neighbour.id,
+            "units": [ship.uid],
+        },
+    )
+
+    assert not blocked.ok
+    assert "diplomatic ban" in blocked.message
+
+    allowed = game.apply_action(
+        "Alice",
+        {
+            "type": "move",
+            "from": home.id,
+            "to": neighbour.id,
+            "units": [next(u for u in home.units_of("Alice") if u.is_ship).uid],
+        },
+    )
+    assert allowed.ok or "turn" in allowed.message
+
+
+def test_diplomacy_requires_a_known_system():
+    game = Game.create(["Alice", "Bob"], seed=11)
+    game.apply_action("Alice", {"type": "select_strategy", "card_id": 2})
+    game.apply_action("Bob", {"type": "select_strategy", "card_id": 7})
+
+    result = game.apply_action("Alice", {"type": "play_strategy"})
+
+    assert not result.ok
+    assert 2 not in game.played_cards

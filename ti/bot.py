@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
+from ti.cards import get_card
 from ti.models import Player, Unit
 from ti.phases import Phase
 from ti.units import get_unit_type
@@ -105,9 +106,19 @@ def _vote(game: "Game", player: Player) -> Optional[dict]:
 
 
 def _play_strategy(game: "Game", player: Player) -> Optional[dict]:
-    if player.strategy_card and player.strategy_card not in game.played_cards:
-        return {"type": "play_strategy"}
-    return None
+    if not player.strategy_card or player.strategy_card in game.played_cards:
+        return None
+    action = {"type": "play_strategy"}
+    card = get_card(player.strategy_card)
+    if card is not None and card.primary.block_system:
+        action["system"] = _system_to_block(game, player)
+    return action
+
+
+def _system_to_block(game: "Game", player: Player) -> str:
+    """Protect the bot's own home system against incoming fleets."""
+    home = game.board.home_system(player.name)
+    return home.id if home is not None else game.board.systems[0].id
 
 
 def _invade(game: "Game", player: Player) -> Optional[dict]:

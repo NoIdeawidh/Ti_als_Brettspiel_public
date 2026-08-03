@@ -387,7 +387,8 @@ q("btnBuild").onclick = () => {
   });
 };
 
-q("btnPlayStrategy").onclick = () => act({ type: "play_strategy" });
+q("btnPlayStrategy").onclick = () =>
+  act({ type: "play_strategy", system: view.selectedSystem });
 
 q("btnPlayActionCard").onclick = () =>
   act({

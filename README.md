@@ -51,9 +51,12 @@ Re-Exports für ältere Importe.
    `play_strategy` löst die Primärfähigkeit der eigenen Karte aus (einmal pro
    Runde), `follow` die schwächere Sekundärfähigkeit einer bereits ausgespielten
    fremden Karte – einmal pro Karte und Spieler und gegen ein Kommandotoken.
-   *Trade* primär gibt 3 Handelsgüter und jedem anderen Spieler 1, *Imperial*
-   primär wertet sofort ein erfülltes öffentliches Ziel und gibt einen
-   zusätzlichen Siegpunkt, solange der Spieler Mecatol Rex kontrolliert.
+   *Diplomacy* primär sperrt ein gewähltes System für diese Runde
+   (`play_strategy` mit `system`, gespeichert in `Game.blocked_systems`): andere
+   Spieler können dort nicht einfliegen. *Trade* primär gibt 3 Handelsgüter und
+   jedem anderen Spieler 1, *Imperial* primär wertet sofort ein erfülltes
+   öffentliches Ziel und gibt einen zusätzlichen Siegpunkt, solange der Spieler
+   Mecatol Rex kontrolliert.
    **Handelsgüter** (Trade-Karte) sind eine zweite Währung: Sie zahlen, was die
    Ressourcen nicht decken, und lassen sich mit `trade` auch außerhalb des eigenen
    Zuges an Mitspieler abgeben, um Abkommen zu erfüllen. **Aktionskarten**
