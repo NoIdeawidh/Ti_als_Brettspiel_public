@@ -313,9 +313,11 @@ async function refresh(since) {
     q("activePlayer"),
     state.players.map(p => ({
       value: p.name,
-      label: p.hidden_action_cards === undefined
-        ? p.name
-        : `${p.name} (${p.hidden_action_cards} Karten verdeckt)`
+      label:
+        (p.is_bot ? `${p.name} [Bot]` : p.name) +
+        (p.hidden_action_cards === undefined
+          ? ""
+          : ` (${p.hidden_action_cards} Karten verdeckt)`)
     }))
   );
   if (state.turn.current_player && !q("activePlayer").dataset.locked) {

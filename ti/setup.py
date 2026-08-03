@@ -42,11 +42,17 @@ def build_players(raw_players: Sequence[object], factions: Optional[Dict[str, st
             name = raw["name"]
             faction = raw.get("faction") or factions.get(name) or DEFAULT_FACTION
             color = raw.get("color") or DEFAULT_COLORS[index % len(DEFAULT_COLORS)]
+            is_bot = bool(raw.get("bot") or raw.get("is_bot"))
         else:
             name = str(raw)
             faction = factions.get(name, DEFAULT_FACTION)
             color = DEFAULT_COLORS[index % len(DEFAULT_COLORS)]
-        players.append(_apply_faction(Player(name=name, faction=faction, color=color)))
+            is_bot = False
+        players.append(
+            _apply_faction(
+                Player(name=name, faction=faction, color=color, is_bot=is_bot)
+            )
+        )
     _reject_duplicates([p.name for p in players])
     return players
 
